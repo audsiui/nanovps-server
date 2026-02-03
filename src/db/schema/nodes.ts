@@ -13,10 +13,6 @@ export async function initNodesTable(sql: SQL) {
       -- 宿主机公网 IP
       public_ip       VARCHAR(45) NOT NULL,
 
-      -- NAT 端口范围配置
-      nat_min_port    INT DEFAULT 10000,
-      nat_max_port    INT DEFAULT 20000,
-
       -- 资源容量
       total_cpu       INT DEFAULT 4,
       total_ram_mb    INT DEFAULT 8192,
@@ -63,8 +59,6 @@ export async function initNodesTable(sql: SQL) {
   await sql`COMMENT ON COLUMN nodes.name IS '节点名称，用于展示和识别'`;
   await sql`COMMENT ON COLUMN nodes.agent_token IS 'Agent 认证令牌，节点上报数据时使用，需保密'`;
   await sql`COMMENT ON COLUMN nodes.public_ip IS '宿主机公网 IP 地址，用于生成用户访问地址'`;
-  await sql`COMMENT ON COLUMN nodes.nat_min_port IS 'NAT 端口范围起始，默认 10000'`;
-  await sql`COMMENT ON COLUMN nodes.nat_max_port IS 'NAT 端口范围结束，默认 20000'`;
   await sql`COMMENT ON COLUMN nodes.total_cpu IS '节点总 CPU 核数，默认 4 核'`;
   await sql`COMMENT ON COLUMN nodes.total_ram_mb IS '节点总内存大小(MB)，默认 8192(8G)'`;
   await sql`COMMENT ON COLUMN nodes.last_heartbeat IS '最后一次心跳时间，用于判断节点是否在线'`;

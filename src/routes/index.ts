@@ -1,6 +1,5 @@
 import { baseApp } from '../base/app';
 import { authPlugin } from '../plugins/auth';
-import { usersController } from '../modules/users/users.controller';
 import { authController } from '../modules/auth/auth.controller';
 import Elysia from 'elysia';
 
@@ -8,7 +7,6 @@ import Elysia from 'elysia';
 export const routes = new Elysia()
   .use(authPlugin)
   .use(authController)
-  .use(usersController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
