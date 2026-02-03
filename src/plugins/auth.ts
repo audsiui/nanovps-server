@@ -1,6 +1,6 @@
-import { Elysia, t } from 'elysia';
-import { jwt } from '@elysiajs/jwt';
 import type { UserRole } from '../types/user';
+import { errors } from '../utils/response';
+import { createApp } from '../base/app';
 
 export interface JWTPayload {
   userId: string;
@@ -10,20 +10,13 @@ export interface JWTPayload {
   exp?: number;
 }
 
-
 interface AuthOptions {
   required?: boolean;
   roles?: UserRole[];
 }
 
-export const authPlugin = new Elysia({ name: 'auth/plugin' })
-  .use(
-    jwt({
-      name: 'jwt',
-      secret: process.env.JWT_SECRET || 'CHANGE_ME_TO_STRONG_RANDOM',
-      exp: '7d',
-    }),
-  )
+// 使用 baseApp 创建，包含 JWT
+export const authPlugin = createApp({ name: 'auth/plugin' })
   .macro({
     auth: (options: AuthOptions | boolean = true) => {
       const opts: AuthOptions = typeof options === 'boolean' ? { required: options } : options;
@@ -45,29 +38,20 @@ export const authPlugin = new Elysia({ name: 'auth/plugin' })
 
           // 必须鉴权：检查 header 是否存在且格式正确
           if (!auth || !auth.startsWith('Bearer ')) {
-            return ctx.status(401, {
-              success: false,
-              message: '请先登录',
-            });
+            return ctx.status(401, errors.unauthorized('请先登录'));
           }
 
           const token = auth.split(' ')[1];
           const payload = await ctx.jwt.verify(token).catch(() => null);
 
           if (!payload) {
-            return ctx.status(401, {
-              success: false,
-              message: '登录已过期，请重新登录',
-            });
+            return ctx.status(401, errors.unauthorized('登录已过期，请重新登录'));
           }
 
           const user = payload as unknown as JWTPayload;
 
           if (roles && !roles.includes(user.role)) {
-            return ctx.status(403, {
-              success: false,
-              message: '权限不足，无法访问此资源',
-            });
+            return ctx.status(403, errors.forbidden('权限不足，无法访问此资源'));
           }
 
           return { user };

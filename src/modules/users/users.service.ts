@@ -36,8 +36,11 @@ export class UsersService {
       throw new Error("Email already exists");
     }
 
-    // TODO: 使用 Argon2 或 BCrypt 对密码进行哈希
-    const passwordHash = data.password;
+    // 使用 Bun.password 进行密码哈希
+    const passwordHash = await Bun.password.hash(data.password, {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
 
     const user = await usersRepository.create({
       email: data.email,
@@ -73,8 +76,11 @@ export class UsersService {
     };
 
     if (data.password) {
-      // TODO: 使用 Argon2 或 BCrypt 对密码进行哈希
-      updateData.password_hash = data.password;
+      // 使用 Bun.password 进行密码哈希
+      updateData.password_hash = await Bun.password.hash(data.password, {
+        algorithm: "bcrypt",
+        cost: 10,
+      });
     }
 
     const updatedUser = await usersRepository.update(id, updateData);

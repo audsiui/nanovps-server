@@ -1,9 +1,10 @@
 import { Elysia } from 'elysia';
 
 import { cors } from '@elysiajs/cors';
-import { initDatabase, sql } from './db';
+import { initDatabase } from './db';
 import { routes } from './routes';
 import openapi from '@elysiajs/openapi';
+import { errors } from './utils/response';
 
 async function bootstrap() {
   // 初始化数据库（创建表）
@@ -15,13 +16,18 @@ async function bootstrap() {
     .use(openapi())
     // 全局错误处理
     .onError(({ code, error, set }) => {
-      set.status = code === 'VALIDATION' ? 400 : 500;
+      if (code === 'VALIDATION') {
+        set.status = 400;
+        return errors.validation('请求参数错误');
+      }
 
-      return {
-        success: false,
-        message: error.message || '服务器内部错误',
-        code,
-      };
+      if (code === 'NOT_FOUND') {
+        set.status = 404;
+        return errors.notFound('接口不存在');
+      }
+
+      set.status = 500;
+      return errors.internal(error.message);
     })
 
     // 根路由
