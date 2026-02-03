@@ -4,11 +4,18 @@ import { cors } from '@elysiajs/cors';
 import { routes } from './routes';
 import openapi from '@elysiajs/openapi';
 import { errors } from './utils/response';
+import jwt from '@elysiajs/jwt';
+import { authController } from './modules/auth/auth.controller';
 
 async function bootstrap() {
-
   const app = new Elysia()
-    // 全局中间件
+    .use(
+      jwt({
+        name: 'jwt',
+        secret: process.env.JWT_SECRET || 'CHANGE_ME_TO_STRONG_RANDOM',
+        exp: '30m', // Access Token 30 分钟过期
+      }),
+    )
     .use(cors())
     .use(openapi())
     // 全局错误处理
@@ -24,9 +31,8 @@ async function bootstrap() {
       }
 
       set.status = 500;
-      return errors.internal("服务器内部错误");
+      return errors.internal('服务器内部错误');
     })
-
     // 根路由
     .get('/', () => ({
       name: 'NanoVPS Server API',
@@ -43,7 +49,9 @@ async function bootstrap() {
   console.log(
     `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
   );
-  console.log(`📚 OpenAPI docs: http://${app.server?.hostname}:${app.server?.port}/openapi`);
+  console.log(
+    `📚 OpenAPI docs: http://${app.server?.hostname}:${app.server?.port}/openapi`,
+  );
 
   return app;
 }

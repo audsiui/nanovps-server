@@ -18,7 +18,8 @@
     "@types/pg": "^8.16.0",
     "bun-types": "latest",
     "drizzle-kit": "^0.31.8",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "module": "src/index.js"
 }
