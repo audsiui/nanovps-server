@@ -4,7 +4,7 @@ export type UserRole = 'user' | 'admin' | 'support';
 // 用户状态: 1=正常, 0=未验证, -1=封禁
 export type UserStatus = 1 | 0 | -1;
 
-// 用户模型
+// 用户模型（数据库字段映射为小驼峰）
 export interface User {
   id: bigint;
   email: string;
@@ -13,11 +13,11 @@ export interface User {
   currency: string;
   role: UserRole;
   status: UserStatus;
-  api_key: string | null;
-  two_factor_auth: string | null;
-  last_login_ip: string | null;
-  created_at: Date;
-  updated_at: Date;
+  apiKey: string | null;
+  twoFactorAuth: string | null;
+  lastLoginIp: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // 创建用户请求
@@ -26,14 +26,16 @@ export interface CreateUserRequest {
   password: string;
 }
 
-// 用户响应（不包含敏感字段）
+// 用户响应（不包含敏感字段，如 password_hash、twoFactorAuth）
 export interface UserResponse {
-  id: bigint;
+  id: string;  // bigint 转为 string
   email: string;
   balance: string;
   currency: string;
   role: UserRole;
   status: UserStatus;
-  created_at: Date;
-  updated_at: Date;
+  apiKey: string | null;
+  lastLoginIp: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
