@@ -37,3 +37,15 @@ export interface LoginResponse {
   user: UserResponse;
   token?: string;
 }
+
+// Token 响应（双 Token 模式）
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number; // Access Token 过期时间（秒）
+}
+
+// 登录响应（双 Token 模式）
+export interface LoginWithTokensResponse extends TokenResponse {
+  user: UserResponse;
+}

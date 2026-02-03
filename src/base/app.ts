@@ -7,7 +7,7 @@ export const createApp = (config?: ElysiaConfig<any>) =>
     jwt({
       name: 'jwt',
       secret: process.env.JWT_SECRET || 'CHANGE_ME_TO_STRONG_RANDOM',
-      exp: '7d',
+      exp: '30m', // Access Token 30 分钟过期
     }),
   );
 
