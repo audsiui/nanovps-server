@@ -51,4 +51,19 @@ export async function initUsersTable(sql: SQL) {
       END IF;
     END $$;
   `;
+
+  // 添加表和字段注释
+  await sql`COMMENT ON TABLE users IS '用户表：存储平台注册用户的基本信息、财务数据和权限状态'`;
+  await sql`COMMENT ON COLUMN users.id IS '用户唯一标识，自增主键'`;
+  await sql`COMMENT ON COLUMN users.email IS '用户邮箱，用于登录和接收通知'`;
+  await sql`COMMENT ON COLUMN users.password_hash IS '密码哈希值，使用 bcrypt 算法加密'`;
+  await sql`COMMENT ON COLUMN users.balance IS '账户余额，支持4位小数'`;
+  await sql`COMMENT ON COLUMN users.currency IS '货币类型，默认 CNY'`;
+  await sql`COMMENT ON COLUMN users.role IS '用户角色：user(普通用户)、admin(管理员)'`;
+  await sql`COMMENT ON COLUMN users.status IS '账户状态：1(正常)、0(禁用)'`;
+  await sql`COMMENT ON COLUMN users.api_key IS 'API 访问密钥，用于程序化访问'`;
+  await sql`COMMENT ON COLUMN users.two_factor_auth IS '双因素认证密钥'`;
+  await sql`COMMENT ON COLUMN users.last_login_ip IS '最后一次登录的 IP 地址'`;
+  await sql`COMMENT ON COLUMN users.created_at IS '账户创建时间'`;
+  await sql`COMMENT ON COLUMN users.updated_at IS '账户信息最后更新时间'`;
 }
