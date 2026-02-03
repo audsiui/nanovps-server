@@ -1,4 +1,4 @@
-import type { UserRole } from '../types/user';
+import type { UserRole } from '../types/auth';
 import { errors } from '../utils/response';
 import { createApp } from '../base/app';
 

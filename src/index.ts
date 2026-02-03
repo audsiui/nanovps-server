@@ -1,14 +1,11 @@
 import { Elysia } from 'elysia';
 
 import { cors } from '@elysiajs/cors';
-import { initDatabase } from './db';
 import { routes } from './routes';
 import openapi from '@elysiajs/openapi';
 import { errors } from './utils/response';
 
 async function bootstrap() {
-  // 初始化数据库（创建表）
-  await initDatabase();
 
   const app = new Elysia()
     // 全局中间件
@@ -41,12 +38,12 @@ async function bootstrap() {
     .use(routes)
 
     // 启动服务器
-    .listen(3000);
+    .listen(3001);
 
   console.log(
-    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
+    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
   );
-  console.log(`📚 OpenAPI docs: http://localhost:3000/openapi`);
+  console.log(`📚 OpenAPI docs: http://${app.server?.hostname}:${app.server?.port}/openapi`);
 
   return app;
 }

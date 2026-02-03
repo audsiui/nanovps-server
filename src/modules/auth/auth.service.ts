@@ -1,25 +1,5 @@
 import { findByEmail, createUser } from "./auth.repository";
-import type { User, UserResponse } from "../../types/user";
-
-// 注册请求类型
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-// 登录请求类型
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-// 注册响应类型
-export interface RegisterResponse extends UserResponse {}
-
-// 登录响应类型
-export interface LoginResponse {
-  user: UserResponse;
-}
+import type { CreateUserRequest, User, UserResponse, LoginRequest, LoginResponse } from "../../types/auth";
 
 // 密码哈希
 export async function hashPassword(password: string): Promise<string> {
@@ -38,7 +18,7 @@ export async function verifyPassword(
 }
 
 // 用户注册
-export async function register(data: RegisterRequest): Promise<RegisterResponse> {
+export async function register(data: CreateUserRequest): Promise<UserResponse> {
   // 检查邮箱是否已存在
   const existingUser = await findByEmail(data.email);
   if (existingUser) {
@@ -51,7 +31,7 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
   // 创建用户
   const user = await createUser({
     email: data.email,
-    password_hash: passwordHash,
+    passwordHash: passwordHash,
   });
 
   return {
@@ -79,7 +59,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   // 验证密码
   const isPasswordValid = await verifyPassword(
     data.password,
-    user.password_hash
+    user.passwordHash
   );
 
   if (!isPasswordValid) {
@@ -95,7 +75,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
     throw new Error("账号已被封禁");
   }
 
-  const { password_hash, twoFactorAuth, ...userWithoutSensitive } = user;
+  const { passwordHash, twoFactorAuth, ...userWithoutSensitive } = user;
 
   return {
     user: {

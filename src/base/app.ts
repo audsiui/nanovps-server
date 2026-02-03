@@ -2,7 +2,7 @@ import { Elysia, type ElysiaConfig } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
 
 // 创建带 JWT 的 App 工厂函数
-export const createApp = (config?: ElysiaConfig) =>
+export const createApp = (config?: ElysiaConfig<any>) =>
   new Elysia(config).use(
     jwt({
       name: 'jwt',
