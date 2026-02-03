@@ -1,42 +1,28 @@
-import { SQL } from "bun";
-import { initUsersTable, initNodesTable } from "./schema";
+/**
+ * 数据库入口文件
+ *
+ * 负责创建 PostgreSQL 连接池并初始化 Drizzle ORM 实例。
+ * 所有数据库操作都应从此文件导入 db 实例。
+ *
+ * 环境变量依赖:
+ *   - DATABASE_URL: PostgreSQL 连接字符串
+ *
+ * 使用示例:
+ *   import { db, schema } from "@/db";
+ *   const users = await db.select().from(schema.users);
+ */
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./schema";
 
-let connectedCount = 0;
-let closedCount = 0;
-
-// PostgreSQL 连接配置
-export const sql = new SQL({
-  hostname: "localhost",
-  port: 5432,
-  database: "nanovps-server",
-  username: "postgres",
-  password: "yshinu144",
-  max: 5,                    // 减少连接数，一般 5 个足够
-  idleTimeout: 600,          // 空闲 10 分钟后关闭（避免频繁重连）
-  connectionTimeout: 30,
-  onconnect: () => {
-    connectedCount++;
-    if (connectedCount === 1) {
-      console.log("✅ Connected to PostgreSQL");
-    }
-  },
-  onclose: () => {
-    closedCount++;
-    if (closedCount === connectedCount) {
-      console.log("❌ PostgreSQL connections closed");
-    }
-  },
+/** PostgreSQL 连接池实例 */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
 
-// 初始化数据库表
-export async function initDatabase() {
-  try {
-    await initUsersTable(sql);
-    await initNodesTable(sql);
+/** Drizzle ORM 数据库操作实例 */
+export const db = drizzle(pool, { schema });
 
-    console.log("✅ Database initialized successfully");
-  } catch (error) {
-    console.error("❌ Database initialization failed:", error);
-    throw error;
-  }
-}
+// 导出 schema 供其他地方使用
+export { schema };
+export * from "./schema";

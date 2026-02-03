@@ -1,8 +1,8 @@
 // 用户角色
-export type UserRole = 'user' | 'admin' | 'support';
+export type UserRole = 'user' | 'admin';
 
-// 用户状态: 1=正常, 0=未验证, -1=封禁
-export type UserStatus = 1 | 0 | -1;
+// 用户状态: 1=正常, 0=未验证, 2=封禁
+export type UserStatus = 1 | 0 | 2;
 
 // 用户模型（数据库字段映射为小驼峰）
 export interface User {

@@ -91,7 +91,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
     throw new Error("账号未激活，请联系管理员");
   }
 
-  if (user.status === -1) {
+  if (user.status === 2) {
     throw new Error("账号已被封禁");
   }
 

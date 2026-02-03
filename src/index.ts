@@ -27,7 +27,7 @@ async function bootstrap() {
       }
 
       set.status = 500;
-      return errors.internal(error.message);
+      return errors.internal("服务器内部错误");
     })
 
     // 根路由

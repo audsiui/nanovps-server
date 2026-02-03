@@ -1,68 +1,77 @@
-import type { SQL } from "bun";
+/**
+ * 节点表 Schema 定义
+ *
+ * @file nodes.ts
+ * @description 定义 VPS 宿主机节点的数据库表结构，用于管理各节点的资源、状态和认证信息。
+ */
+import {
+  pgTable,
+  bigserial,
+  varchar,
+  smallint,
+  timestamp,
+  integer,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/pg-core";
 
-export async function initNodesTable(sql: SQL) {
-  // 创建 nodes 表
-  await sql`
-    CREATE TABLE IF NOT EXISTS nodes (
-      id              BIGSERIAL PRIMARY KEY,
-      name            VARCHAR(50) NOT NULL,
+/**
+ * 节点表 - 存储 VPS 宿主机节点信息，包含资源、状态、认证等字段
+ */
+export const nodes = pgTable(
+  "nodes",
+  {
+    // ==================== 基础信息 ====================
+    /** 节点唯一标识，自增主键 */
+    id: bigserial("id", { mode: "number" }).primaryKey(),
 
-      -- Agent 认证凭证
-      agent_token     VARCHAR(64) NOT NULL UNIQUE,
+    /** 节点名称，用于展示，如"香港-01" */
+    name: varchar("name", { length: 50 }).notNull(),
 
-      -- 宿主机公网 IP
-      public_ip       VARCHAR(45) NOT NULL,
+    // ==================== 认证与安全 ====================
+    /** Agent认证令牌，节点Agent连接API时使用的唯一凭证 */
+    agentToken: varchar("agent_token", { length: 64 }).notNull(),
 
-      -- 资源容量
-      total_cpu       INT DEFAULT 4,
-      total_ram_mb    INT DEFAULT 8192,
+    // ==================== 网络配置 ====================
+    /** 宿主机公网IP地址，支持IPv4和IPv6 */
+    publicIp: varchar("public_ip", { length: 45 }).notNull(),
 
-      -- 心跳监测
-      last_heartbeat  TIMESTAMP,
+    // ==================== 资源配置 ====================
+    /** CPU总核心数，默认4核 */
+    totalCpu: integer("total_cpu").default(4),
 
-      -- 机器状态 (1: 在线, 0: 离线/维护)
-      status          SMALLINT DEFAULT 1,
+    /** 内存总容量(MB)，默认8192MB(8GB) */
+    totalRamMb: integer("total_ram_mb").default(8192),
 
-      -- 审计字段
-      created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
+    // ==================== 状态监控 ====================
+    /** 最后心跳时间，Agent定时上报，用于判断节点是否在线 */
+    lastHeartbeat: timestamp("last_heartbeat"),
 
-  // 创建 agent_token 唯一索引
-  await sql`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_indexes WHERE indexname = 'idx_nodes_agent_token'
-      ) THEN
-        CREATE UNIQUE INDEX idx_nodes_agent_token ON nodes(agent_token);
-      END IF;
-    END $$;
-  `;
+    /**
+     * 节点状态
+     * - 1: 在线（正常接收实例）
+     * - 0: 离线/维护（不分配新实例）
+     * @default 1
+     */
+    status: smallint("status").default(1),
 
-  // 创建 status 索引（方便查询在线节点）
-  await sql`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_indexes WHERE indexname = 'idx_nodes_status'
-      ) THEN
-        CREATE INDEX idx_nodes_status ON nodes(status);
-      END IF;
-    END $$;
-  `;
+    // ==================== 审计字段 ====================
+    /** 记录创建时间 */
+    createdAt: timestamp("created_at").defaultNow(),
 
-  // 添加表和字段注释
-  await sql`COMMENT ON TABLE nodes IS '节点表：管理宿主机 VPS 节点的信息、资源和状态'`;
-  await sql`COMMENT ON COLUMN nodes.id IS '节点唯一标识，自增主键'`;
-  await sql`COMMENT ON COLUMN nodes.name IS '节点名称，用于展示和识别'`;
-  await sql`COMMENT ON COLUMN nodes.agent_token IS 'Agent 认证令牌，节点上报数据时使用，需保密'`;
-  await sql`COMMENT ON COLUMN nodes.public_ip IS '宿主机公网 IP 地址，用于生成用户访问地址'`;
-  await sql`COMMENT ON COLUMN nodes.total_cpu IS '节点总 CPU 核数，默认 4 核'`;
-  await sql`COMMENT ON COLUMN nodes.total_ram_mb IS '节点总内存大小(MB)，默认 8192(8G)'`;
-  await sql`COMMENT ON COLUMN nodes.last_heartbeat IS '最后一次心跳时间，用于判断节点是否在线'`;
-  await sql`COMMENT ON COLUMN nodes.status IS '节点状态：1(在线)、0(离线/维护)'`;
-  await sql`COMMENT ON COLUMN nodes.created_at IS '节点记录创建时间'`;
-  await sql`COMMENT ON COLUMN nodes.updated_at IS '节点信息最后更新时间'`;
-}
+    /** 记录最后更新时间 */
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    // Agent Token 唯一索引，用于认证时快速查找节点
+    uniqueIndex("idx_nodes_agent_token").on(table.agentToken),
+    // 状态索引，加速筛选可用节点
+    index("idx_nodes_status").on(table.status),
+  ]
+);
+
+/** 节点表查询返回类型 (推断自表定义) */
+export type Node = typeof nodes.$inferSelect;
+
+/** 节点表插入数据类型 (推断自表定义) */
+export type NewNode = typeof nodes.$inferInsert;
