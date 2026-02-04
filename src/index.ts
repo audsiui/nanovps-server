@@ -8,7 +8,9 @@ import jwt from '@elysiajs/jwt';
 import { authController } from './modules/auth/auth.controller';
 
 async function bootstrap() {
-  const app = new Elysia()
+  const app = new Elysia({
+    prefix:"/api"
+  })
     .use(
       jwt({
         name: 'jwt',
@@ -47,10 +49,10 @@ async function bootstrap() {
     .listen(3001);
 
   console.log(
-    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`,
+    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}/api`,
   );
   console.log(
-    `📚 OpenAPI docs: http://${app.server?.hostname}:${app.server?.port}/openapi`,
+    `📚 OpenAPI docs: http://${app.server?.hostname}:${app.server?.port}/api/openapi`,
   );
 
   return app;

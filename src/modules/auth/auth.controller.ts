@@ -100,8 +100,8 @@ export const authController = new Elysia({
           set.status = 403;
           return errors.forbidden(message);
         }
-        set.status = 401;
-        return errors.unauthorized(message);
+        set.status = 422;
+        return errors.validation(message);
       }
     },
     {

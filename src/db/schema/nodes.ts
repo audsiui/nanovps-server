@@ -7,6 +7,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   smallint,
   timestamp,
@@ -55,6 +56,12 @@ export const nodes = pgTable(
      */
     status: smallint("status").default(1),
 
+    /**
+     * 所属区域ID（逻辑外键，指向 regions 表）
+     * 不设置数据库级外键约束，通过应用层维护关联关系
+     */
+    regionId: bigint("region_id", { mode: "number" }),
+
     // ==================== 审计字段 ====================
     /** 记录创建时间 */
     createdAt: timestamp("created_at").defaultNow(),
@@ -67,6 +74,8 @@ export const nodes = pgTable(
     uniqueIndex("idx_nodes_agent_token").on(table.agentToken),
     // 状态索引，加速筛选可用节点
     index("idx_nodes_status").on(table.status),
+    // 区域ID索引，加速按区域筛选节点
+    index("idx_nodes_region_id").on(table.regionId),
   ]
 );
 
