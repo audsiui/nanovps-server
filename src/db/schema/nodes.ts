@@ -34,8 +34,11 @@ export const nodes = pgTable(
     agentToken: varchar("agent_token", { length: 64 }).notNull(),
 
     // ==================== 网络配置 ====================
-    /** 宿主机公网IP地址，支持IPv4和IPv6 */
-    publicIp: varchar("public_ip", { length: 45 }).notNull(),
+    /** 宿主机IPv4地址 */
+    ipv4: varchar("ipv4", { length: 15 }),
+
+    /** 宿主机IPv6地址 */
+    ipv6: varchar("ipv6", { length: 45 }),
 
     // ==================== 资源配置 ====================
     /** CPU总核心数，默认4核 */
@@ -43,6 +46,9 @@ export const nodes = pgTable(
 
     /** 内存总容量(MB)，默认8192MB(8GB) */
     totalRamMb: integer("total_ram_mb").default(8192),
+
+    /** 可分配硬盘容量(GB)，表示可用于分配给容器的剩余硬盘空间 */
+    allocatableDiskGb: integer("allocatable_disk_gb").default(0),
 
     // ==================== 状态监控 ====================
     /** 最后心跳时间，Agent定时上报，用于判断节点是否在线 */
