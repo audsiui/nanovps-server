@@ -8,3 +8,5 @@ export * from "./users";
 export * from "./nodes";
 export * from "./regions";
 export * from "./images";
+export * from "./planTemplates";
+export * from "./nodePlans";
