@@ -10,3 +10,6 @@ export * from "./regions";
 export * from "./images";
 export * from "./planTemplates";
 export * from "./nodePlans";
+export * from "./instances";
+export * from "./orders";
+export * from "./natPortMappings";
