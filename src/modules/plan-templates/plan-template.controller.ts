@@ -116,6 +116,10 @@ export const planTemplateController = new Elysia({
           set.status = 404;
           return errors.notFound(error.message);
         }
+        if (error.message.includes('正在被') && error.message.includes('使用')) {
+          set.status = 409;
+          return errors.conflict(error.message);
+        }
         set.status = 400;
         return errors.badRequest(error.message);
       }
@@ -135,7 +139,7 @@ export const planTemplateController = new Elysia({
       }),
       detail: {
         summary: '更新套餐模板',
-        description: '更新套餐模板信息',
+        description: '更新套餐模板信息。如果套餐正在被节点使用，则只能修改名称和备注',
       },
     },
   )
@@ -151,6 +155,10 @@ export const planTemplateController = new Elysia({
         if (error.message === '套餐模板不存在') {
           set.status = 404;
           return errors.notFound(error.message);
+        }
+        if (error.message.includes('正在被') && error.message.includes('使用')) {
+          set.status = 409;
+          return errors.conflict(error.message);
         }
         set.status = 400;
         return errors.badRequest(error.message);

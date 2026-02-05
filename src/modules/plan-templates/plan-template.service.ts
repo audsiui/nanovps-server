@@ -11,6 +11,7 @@ import {
   update,
   remove,
 } from './plan-template.repository';
+import { findAll as findNodePlansByTemplateId } from '../node-plans/node-plan.repository';
 import type { NewPlanTemplate } from '../../db/schema/planTemplates';
 
 /**
@@ -72,6 +73,7 @@ export async function createPlanTemplate(data: {
 
 /**
  * 更新套餐模板
+ * 如果套餐模板正在被节点使用，则只能修改名称和备注
  */
 export async function updatePlanTemplate(
   id: number,
@@ -91,11 +93,37 @@ export async function updatePlanTemplate(
     throw new Error('套餐模板不存在');
   }
 
+  // 检查是否有节点正在使用该套餐模板
+  const { total: usageCount } = await findNodePlansByTemplateId({ planTemplateId: id });
+  const isInUse = usageCount > 0;
+
+  if (isInUse) {
+    // 如果正在使用，只允许修改名称和备注
+    const allowedFields: Partial<typeof data> = {};
+    if (data.name !== undefined) allowedFields.name = data.name;
+    if (data.remark !== undefined) allowedFields.remark = data.remark;
+
+    // 检查是否尝试修改了其他字段
+    const restrictedFields = ['cpu', 'ramMb', 'diskGb', 'trafficGb', 'bandwidthMbps', 'portCount'];
+    const attemptedFields = restrictedFields.filter(field => data[field as keyof typeof data] !== undefined);
+
+    if (attemptedFields.length > 0) {
+      throw new Error(`该套餐模板正在被 ${usageCount} 个节点使用，无法修改资源配置（${attemptedFields.join(', ')}）`);
+    }
+
+    if (Object.keys(allowedFields).length === 0) {
+      throw new Error('没有可修改的字段');
+    }
+
+    return update(id, allowedFields);
+  }
+
   return update(id, data);
 }
 
 /**
  * 删除套餐模板
+ * 如果有节点正在使用该套餐模板，则不允许删除
  */
 export async function deletePlanTemplate(id: number) {
   const exists = await findById(id);
@@ -103,7 +131,11 @@ export async function deletePlanTemplate(id: number) {
     throw new Error('套餐模板不存在');
   }
 
-  // TODO: 检查是否有节点在使用该套餐模板
+  // 检查是否有节点正在使用该套餐模板
+  const { total: usageCount } = await findNodePlansByTemplateId({ planTemplateId: id });
+  if (usageCount > 0) {
+    throw new Error(`该套餐模板正在被 ${usageCount} 个节点使用，无法删除`);
+  }
 
   const deleted = await remove(id);
   if (!deleted) {
