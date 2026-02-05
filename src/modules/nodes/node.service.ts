@@ -12,6 +12,7 @@ import {
   update,
   existsByName,
   existsByAgentToken,
+  findAll,
 } from './node.repository';
 import type { NewNode } from '../../db/schema/nodes';
 
@@ -108,4 +109,39 @@ export async function getNodeById(id: number) {
     throw new Error('节点不存在');
   }
   return node;
+}
+
+
+/**
+ * 获取节点列表
+ * 支持分页、状态筛选、区域筛选、关键词搜索
+ */
+export async function getNodeList(params: {
+  page?: number;
+  pageSize?: number;
+  status?: number;
+  regionId?: number;
+  keyword?: string;
+}) {
+  const { page = 1, pageSize = 10 } = params;
+
+  // 参数校验
+  if (page < 1) {
+    throw new Error('页码不能小于1');
+  }
+  if (pageSize < 1 || pageSize > 100) {
+    throw new Error('每页数量范围为1-100');
+  }
+
+  const { list, total } = await findAll(params);
+
+  return {
+    list,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
 }

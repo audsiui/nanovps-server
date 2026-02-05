@@ -10,7 +10,7 @@
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
 import { success, created, errors } from '../../utils/response';
-import { createNode, updateNode, getNodeById } from './node.service';
+import { createNode, updateNode, getNodeById, getNodeList } from './node.service';
 
 export const nodeController = new Elysia({
   prefix: '/admin/nodes',
@@ -105,6 +105,41 @@ export const nodeController = new Elysia({
       detail: {
         summary: '获取节点详情',
         description: '根据ID获取节点详细信息',
+      },
+    },
+  )
+  // 获取节点列表（GET）
+  .get(
+    '/list',
+    async ({ query }) => {
+      const page = query.page ? Number(query.page) : 1;
+      const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+      const status = query.status ? Number(query.status) : undefined;
+      const regionId = query.regionId ? Number(query.regionId) : undefined;
+      const keyword = query.keyword;
+
+      const result = await getNodeList({
+        page,
+        pageSize,
+        status,
+        regionId,
+        keyword,
+      });
+
+      return success(result);
+    },
+    {
+      auth: ['admin'],
+      query: t.Object({
+        page: t.Optional(t.String()),
+        pageSize: t.Optional(t.String()),
+        status: t.Optional(t.String()),
+        regionId: t.Optional(t.String()),
+        keyword: t.Optional(t.String()),
+      }),
+      detail: {
+        summary: '获取节点列表',
+        description: '支持分页、状态筛选、区域筛选、关键词搜索',
       },
     },
   );

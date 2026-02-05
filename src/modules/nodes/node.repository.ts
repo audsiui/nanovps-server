@@ -98,3 +98,50 @@ export async function existsByAgentToken(agentToken: string, excludeId?: number)
 
   return result[0]?.count > 0;
 }
+
+/**
+ * 查询节点列表
+ * 支持分页、状态筛选、区域筛选、关键词搜索
+ */
+export async function findAll(params: {
+  page?: number;
+  pageSize?: number;
+  status?: number;
+  regionId?: number;
+  keyword?: string;
+}): Promise<{ list: Node[]; total: number }> {
+  const { page = 1, pageSize = 10, status, regionId, keyword } = params;
+
+  // 构建筛选条件
+  const conditions = [];
+  if (status !== undefined) {
+    conditions.push(eq(nodes.status, status));
+  }
+  if (regionId !== undefined) {
+    conditions.push(eq(nodes.regionId, regionId));
+  }
+  if (keyword) {
+    conditions.push(
+      sql`${nodes.name} ILIKE ${`%${keyword}%`} OR ${nodes.ipv4} ILIKE ${`%${keyword}%`} OR ${nodes.ipv6} ILIKE ${`%${keyword}%`}`
+    );
+  }
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // 查询总数
+  const countResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(nodes)
+    .where(whereClause);
+  const total = Number(countResult[0]?.count || 0);
+
+  // 查询列表
+  const list = await db
+    .select()
+    .from(nodes)
+    .where(whereClause)
+    .orderBy(sql`${nodes.id} DESC`)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  return { list, total };
+}
