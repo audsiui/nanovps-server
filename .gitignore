@@ -45,3 +45,6 @@ package-lock.json
 drizzle/
 
 dist/
+
+.claude
+.serena

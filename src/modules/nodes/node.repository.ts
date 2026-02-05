@@ -4,7 +4,7 @@
  * @file node.repository.ts
  * @description 封装节点表的增删改查数据库操作
  */
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { nodes, type Node, type NewNode } from '../../db/schema/nodes';
 
@@ -75,7 +75,7 @@ export async function existsByName(name: string, excludeId?: number): Promise<bo
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(nodes)
-    .where(sql`${conditions.join(' AND ')}`)
+    .where(and(...conditions))
     .limit(1);
 
   return result[0]?.count > 0;
@@ -93,7 +93,7 @@ export async function existsByAgentToken(agentToken: string, excludeId?: number)
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(nodes)
-    .where(sql`${conditions.join(' AND ')}`)
+    .where(and(...conditions))
     .limit(1);
 
   return result[0]?.count > 0;
