@@ -5,6 +5,7 @@ import { imageController } from '../modules/images/image.controller';
 import { nodeController } from '../modules/nodes/node.controller';
 import { planTemplateController } from '../modules/plan-templates/plan-template.controller';
 import { nodePlanController } from '../modules/node-plans/node-plan.controller';
+import { catalogController } from '../modules/catalog/catalog.controller';
 import Elysia from 'elysia';
 
 export const routes = new Elysia()
@@ -14,6 +15,7 @@ export const routes = new Elysia()
   .use(nodeController)
   .use(planTemplateController)
   .use(nodePlanController)
+  .use(catalogController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
