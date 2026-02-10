@@ -3,9 +3,10 @@
  *
  * @file catalog.controller.ts
  * @description 为前端应用端提供区域-节点-套餐的层级数据查询接口
- * 无需登录认证，供访客浏览产品使用
+ * 需要登录认证
  */
 import Elysia, { t } from 'elysia';
+import { authPlugin } from '../../plugins/auth';
 import { success, errors } from '../../utils/response';
 import {
   getCatalog,
@@ -17,6 +18,7 @@ export const catalogController = new Elysia({
   prefix: '/catalog',
   detail: { tags: ['产品目录'] },
 })
+  .use(authPlugin)
   // 获取完整产品目录
   .get(
     '/',
@@ -30,6 +32,7 @@ export const catalogController = new Elysia({
       }
     },
     {
+      auth: true,
       detail: {
         summary: '获取完整产品目录',
         description: '返回所有启用的区域及其在线节点和可售套餐的层级数据',
@@ -53,6 +56,7 @@ export const catalogController = new Elysia({
       }
     },
     {
+      auth: true,
       params: t.Object({
         id: t.String(),
       }),
@@ -79,6 +83,7 @@ export const catalogController = new Elysia({
       }
     },
     {
+      auth: true,
       params: t.Object({
         id: t.String(),
       }),
