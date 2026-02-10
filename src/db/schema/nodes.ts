@@ -60,7 +60,7 @@ export const nodes = pgTable(
      * - 0: 离线/维护（不分配新实例）
      * @default 1
      */
-    status: smallint("status").default(1),
+    status: smallint("status").notNull().default(1),
 
     /**
      * 所属区域ID（逻辑外键，指向 regions 表）

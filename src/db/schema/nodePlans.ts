@@ -62,10 +62,10 @@ export const nodePlans = pgTable("node_plans", {
    * - -1: 无限库存（不限制）
    * @default -1
    */
-  stock: integer("stock").default(-1),
+  stock: integer("stock").notNull().default(-1),
 
   /** 已售数量统计，用于展示热门程度 */
-  soldCount: integer("sold_count").default(0),
+  soldCount: integer("sold_count").notNull().default(0),
 
   // ==================== 定价配置 ====================
   /**
@@ -85,13 +85,13 @@ export const nodePlans = pgTable("node_plans", {
    * - 0: 下架（暂停售卖）
    * @default 1
    */
-  status: smallint("status").default(1),
+  status: smallint("status").notNull().default(1),
 
   /**
    * 排序权重，数字越小越靠前展示
    * @default 0
    */
-  sortOrder: smallint("sort_order").default(0),
+  sortOrder: smallint("sort_order").notNull().default(0),
 
   // ==================== 审计字段 ====================
   /** 记录创建时间 */

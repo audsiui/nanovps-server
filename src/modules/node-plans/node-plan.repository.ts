@@ -119,3 +119,32 @@ export async function removeByNodeId(nodeId: number): Promise<boolean> {
   const result = await db.delete(nodePlans).where(eq(nodePlans.nodeId, nodeId)).returning();
   return result.length > 0;
 }
+
+/**
+ * 扣减库存
+ * @returns 扣减后的库存数量，如果库存不足返回 null
+ */
+export async function deductStock(id: number): Promise<number | null> {
+  // 先查询当前库存
+  const plan = await findById(id);
+  if (!plan) return null;
+  
+  // -1 表示无限库存，不需要扣减
+  if (plan.stock === -1) return -1;
+  
+  // 库存不足
+  if (plan.stock <= 0) return null;
+  
+  // 扣减库存并增加已售数量
+  const [result] = await db
+    .update(nodePlans)
+    .set({
+      stock: sql`${nodePlans.stock} - 1`,
+      soldCount: sql`${nodePlans.soldCount} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(nodePlans.id, id))
+    .returning();
+  
+  return result?.stock ?? null;
+}
