@@ -25,9 +25,6 @@ export const nodeReports = pgTable('node_reports', {
   /** 主机状态快照（JSONB 格式） */
   hostSnapshot: jsonb('host_snapshot').notNull(),
 
-  /** 容器状态快照（JSONB 格式） */
-  containersSnapshot: jsonb('containers_snapshot').notNull(),
-
   /** 记录创建时间（入库时间） */
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

@@ -6,7 +6,7 @@ import {
   setLastDbTime,
   type AgentReport,
 } from './report-cache.service';
-import { saveReport } from './report.repository';
+import { saveReport, type ContainerData } from './report.repository';
 import type { Node } from '../../db/schema/nodes';
 
 // WebSocket 连接与节点的映射表
@@ -78,14 +78,16 @@ export const agentChannelController = new Elysia({
       const shouldSave = await shouldSaveToDb(agentId, timestamp);
 
       if (shouldSave) {
-        // 3. 保存到数据库
-        await saveReport({
-          nodeId: node.id,
-          agentId,
-          timestamp,
-          hostSnapshot: host,
-          containersSnapshot: containers,
-        });
+        // 3. 保存到数据库（主机数据存 JSONB，容器数据存独立表）
+        await saveReport(
+          {
+            nodeId: node.id,
+            agentId,
+            timestamp,
+            hostSnapshot: host,
+          },
+          containers as ContainerData[]
+        );
 
         // 4. 更新入库时间戳
         await setLastDbTime(agentId, timestamp);
