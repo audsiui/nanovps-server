@@ -10,7 +10,7 @@ import { promoCodeController } from '../modules/promo-codes/promo-code.controlle
 import { orderController } from '../modules/orders/order.controller';
 import { rechargeController } from '../modules/recharge/recharge.controller';
 import { giftCodeController } from '../modules/gift-codes/gift-code.controller';
-import { wsTestController } from '../modules/ws-test/ws-test.controller';
+import { agentChannelController } from '../modules/agent-channel/agent-channel.controller';
 import Elysia from 'elysia';
 
 export const routes = new Elysia()
@@ -25,7 +25,7 @@ export const routes = new Elysia()
   .use(giftCodeController)
   .use(orderController)
   .use(rechargeController)
-  .use(wsTestController)
+  .use(agentChannelController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
