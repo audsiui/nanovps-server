@@ -46,6 +46,10 @@ export async function getGiftCodeById(id: number): Promise<GiftCode> {
  * 创建赠金码
  */
 export async function createGiftCode(data: NewGiftCode): Promise<GiftCode> {
+  // 处理空字符串日期字段
+  if (data.startAt === '') data.startAt = null;
+  if (data.endAt === '') data.endAt = null;
+
   // 检查赠金码是否已存在
   const existing = await findByCode(data.code);
   if (existing) {
@@ -73,6 +77,10 @@ export async function updateGiftCode(
   id: number,
   data: Partial<NewGiftCode>
 ): Promise<GiftCode> {
+  // 处理空字符串日期字段
+  if (data.startAt === '') data.startAt = null;
+  if (data.endAt === '') data.endAt = null;
+
   const giftCode = await findById(id);
   if (!giftCode) {
     throw new Error('赠金码不存在');

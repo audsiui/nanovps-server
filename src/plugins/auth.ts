@@ -44,7 +44,12 @@ export const authPlugin = new Elysia({ name: 'auth/plugin' })
             return status(403, errors.forbidden('权限不足，无法访问此资源'));
           }
 
-          return { user };
+          return {
+            user: {
+              ...user,
+              userId: Number(user.userId),
+            },
+          };
         },
       };
     },

@@ -5,7 +5,7 @@
  * @description 订单相关的数据库操作
  */
 import { db } from '../../db';
-import { orders, type Order, type NewOrder } from '../../db/schema';
+import { orders, nodePlans, instances, planTemplates, nodes, type Order, type NewOrder } from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 /**
@@ -22,11 +22,67 @@ export function generateOrderNo(): string {
 }
 
 /**
- * 根据ID查找订单
+ * 根据ID查找订单（包含完整信息）
+ * 返回：订单详情 + 金额信息 + 套餐详情 + 实例详情 + 节点信息
  */
-export async function findById(id: number): Promise<Order | null> {
-  const result = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-  return result[0] || null;
+export async function findById(id: number): Promise<any | null> {
+  const result = await db
+    .select({
+      order: orders,
+      nodePlan: nodePlans,
+      instance: instances,
+      planTemplate: planTemplates,
+      node: nodes,
+    })
+    .from(orders)
+    .leftJoin(nodePlans, eq(orders.nodePlanId, nodePlans.id))
+    .leftJoin(instances, eq(orders.instanceId, instances.id))
+    .leftJoin(planTemplates, eq(nodePlans.planTemplateId, planTemplates.id))
+    .leftJoin(nodes, eq(nodePlans.nodeId, nodes.id))
+    .where(eq(orders.id, id))
+    .limit(1);
+
+  if (!result[0]) return null;
+
+  const item = result[0];
+  return {
+    ...item.order,
+    node: item.node ? {
+      id: item.node.id,
+      name: item.node.name,
+      ipv4: item.node.ipv4,
+      ipv6: item.node.ipv6,
+    } : null,
+    nodePlan: item.nodePlan ? {
+      id: item.nodePlan.id,
+      nodeId: item.nodePlan.nodeId,
+      stock: item.nodePlan.stock,
+      soldCount: item.nodePlan.soldCount,
+      billingCycles: item.nodePlan.billingCycles,
+      status: item.nodePlan.status,
+    } : null,
+    instance: item.instance ? {
+      id: item.instance.id,
+      name: item.instance.name,
+      hostname: item.instance.hostname,
+      status: item.instance.status,
+      cpu: item.instance.cpu,
+      ramMb: item.instance.ramMb,
+      diskGb: item.instance.diskGb,
+      internalIp: item.instance.internalIp,
+      createdAt: item.instance.createdAt,
+      expiresAt: item.instance.expiresAt,
+    } : null,
+    planTemplate: item.planTemplate ? {
+      id: item.planTemplate.id,
+      name: item.planTemplate.name,
+      cpu: item.planTemplate.cpu,
+      ramMb: item.planTemplate.ramMb,
+      diskGb: item.planTemplate.diskGb,
+      trafficGb: item.planTemplate.trafficGb,
+      bandwidthMbps: item.planTemplate.bandwidthMbps,
+    } : null,
+  };
 }
 
 /**
@@ -62,7 +118,8 @@ export async function update(id: number, data: Partial<NewOrder>): Promise<Order
 }
 
 /**
- * 查询用户订单列表
+ * 查询用户订单列表（简洁信息）
+ * 返回：订单号、节点名称、类型、套餐名称、金额、状态、创建时间
  */
 export async function findByUserId(params: {
   userId: number;
@@ -79,8 +136,15 @@ export async function findByUserId(params: {
   }
 
   const data = await db
-    .select()
+    .select({
+      order: orders,
+      node: nodes,
+      planTemplate: planTemplates,
+    })
     .from(orders)
+    .leftJoin(nodePlans, eq(orders.nodePlanId, nodePlans.id))
+    .leftJoin(nodes, eq(nodePlans.nodeId, nodes.id))
+    .leftJoin(planTemplates, eq(nodePlans.planTemplateId, planTemplates.id))
     .where(and(...conditions))
     .orderBy(desc(orders.createdAt))
     .limit(pageSize)
@@ -91,8 +155,20 @@ export async function findByUserId(params: {
     .from(orders)
     .where(and(...conditions));
 
+  // 格式化返回简洁数据
+  const formattedData = data.map((item) => ({
+    id: item.order.id,
+    orderNo: item.order.orderNo,
+    nodeName: item.node?.name || null,
+    type: item.order.type,
+    planName: item.planTemplate?.name || null,
+    finalPrice: item.order.finalPrice,
+    status: item.order.status,
+    createdAt: item.order.createdAt,
+  }));
+
   return {
-    list: data,
+    list: formattedData,
     pagination: {
       page,
       pageSize,

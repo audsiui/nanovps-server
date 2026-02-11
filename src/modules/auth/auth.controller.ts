@@ -203,7 +203,7 @@ export const authController = new Elysia({
     '/logout-all',
     async ({ set,user }) => {
       try {
-        await revokeAllUserTokens(user.userId);
+        await revokeAllUserTokens(user.userId.toString());
 
         return success(null, '所有设备已登出');
       } catch (error: any) {
@@ -216,6 +216,41 @@ export const authController = new Elysia({
         summary: '登出所有设备',
         description:
           '使该用户的所有 Refresh Token 失效（封号、踢人、强制下线）',
+      },
+    },
+  )
+  .get(
+    '/me',
+    async ({ user, set }) => {
+      try {
+        const { findById } = await import('./auth.repository');
+        const userInfo = await findById(parseInt(user.userId));
+        
+        if (!userInfo) {
+          set.status = 404;
+          return errors.notFound('用户不存在');
+        }
+        
+        return success(
+          {
+            id: userInfo.id.toString(),
+            email: userInfo.email,
+            role: userInfo.role,
+            balance: userInfo.balance,
+            currency: userInfo.currency,
+          },
+          '获取用户信息成功',
+        );
+      } catch (error: any) {
+        set.status = 500;
+        return errors.internal(error.message);
+      }
+    },
+    {
+      auth: true,
+      detail: {
+        summary: '获取当前用户信息',
+        description: '获取当前登录用户的基本信息（包含余额和货币）',
       },
     },
   );

@@ -14,14 +14,17 @@ import {
   findById as findNodePlanById,
 } from '../node-plans/node-plan.repository';
 import {
+  findById as findUserById,
+} from '../auth/auth.repository';
+import {
   validateAndCalculate,
 } from '../promo-codes/promo-code.service';
-import { db, orders, nodePlans, promoCodeUsages, promoCodes } from '../../db';
+import { db, orders, nodePlans, promoCodeUsages, promoCodes, users } from '../../db';
 import type { NewOrder, Order } from '../../db/schema';
 import { sql, eq } from 'drizzle-orm';
 
 /**
- * 创建订单（支持优惠码）- 使用事务确保原子性
+ * 创建订单并立即支付（支持优惠码）- 使用事务确保原子性
  */
 export async function createOrder(params: {
   userId: number;
@@ -83,9 +86,34 @@ export async function createOrder(params: {
     appliedPromoCode = validation.promoCode;
   }
 
-  // 5. 使用事务执行所有操作（扣减库存、创建订单、创建优惠码记录）
+  // 5. 检查用户余额
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+  
+  const userBalance = Number(user.balance);
+  if (userBalance < finalPrice) {
+    throw new Error(`余额不足，当前余额: ${userBalance.toFixed(2)}，需要支付: ${finalPrice.toFixed(2)}`);
+  }
+
+  // 6. 使用事务执行所有操作（扣款、扣减库存、创建订单、创建优惠码记录）
   return await db.transaction(async (tx) => {
-    // 5.1 扣减库存（使用原子操作）
+    // 6.1 扣减用户余额
+    const [updatedUser] = await tx
+      .update(users)
+      .set({
+        balance: sql`${users.balance} - ${finalPrice.toString()}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      throw new Error('扣款失败');
+    }
+
+    // 6.2 扣减库存（使用原子操作）
     const [updatedNodePlan] = await tx
       .update(nodePlans)
       .set({
@@ -105,7 +133,8 @@ export async function createOrder(params: {
       throw new Error('套餐库存不足');
     }
 
-    // 5.2 创建订单
+    // 6.3 创建订单（状态为已支付）
+    const now = new Date();
     const [order] = await tx
       .insert(orders)
       .values({
@@ -114,22 +143,22 @@ export async function createOrder(params: {
         nodePlanId,
         instanceId: null,
         type: 'new',
-        status: 'pending',
+        status: 'paid',
         billingCycle,
         durationMonths,
         originalPrice: originalPrice.toString(),
         discountAmount: discountAmount.toString(),
         finalPrice: finalPrice.toString(),
-        paymentChannel: null,
-        paidAt: null,
+        paymentChannel: 'balance',
+        paidAt: now,
         paymentTradeNo: null,
-        periodStartAt: null,
-        periodEndAt: null,
+        periodStartAt: now,
+        periodEndAt: new Date(now.getTime() + durationMonths * 30 * 24 * 60 * 60 * 1000),
         remark: null,
       })
       .returning();
 
-    // 5.3 如果使用了优惠码，创建使用记录并增加使用次数
+    // 6.4 如果使用了优惠码，创建使用记录并增加使用次数
     if (appliedPromoCode) {
       await tx.insert(promoCodeUsages).values({
         promoCodeId: appliedPromoCode.id,
