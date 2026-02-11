@@ -6,8 +6,12 @@ import openapi from '@elysiajs/openapi';
 import { errors } from './utils/response';
 import jwt from '@elysiajs/jwt';
 import { authController } from './modules/auth/auth.controller';
+import { initNodeCache } from './modules/nodes/node-cache.service';
 
 async function bootstrap() {
+  // 初始化节点缓存
+  await initNodeCache();
+
   const app = new Elysia({
     prefix:"/api"
   })

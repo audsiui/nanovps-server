@@ -100,6 +100,13 @@ export async function existsByAgentToken(agentToken: string, excludeId?: number)
 }
 
 /**
+ * 删除节点
+ */
+export async function remove(id: number): Promise<void> {
+  await db.delete(nodes).where(eq(nodes.id, id));
+}
+
+/**
  * 查询节点列表
  * 支持分页、状态筛选、区域筛选、关键词搜索
  */

@@ -1,6 +1,5 @@
 import Elysia from 'elysia';
-import { findByAgentToken } from '../nodes/node.repository';
-import type { Node } from '../../db/schema/nodes';
+import { getAllNodesFromCache } from '../nodes/node-cache.service';
 
 
  export const agentChannelController = new Elysia({
@@ -16,7 +15,9 @@ import type { Node } from '../../db/schema/nodes';
         return { error: 'Missing Agent Token' };
       }
 
-      const node = await findByAgentToken(agentToken);
+      // 从 Redis 缓存查询节点（遍历所有缓存的节点匹配 agentToken）
+      const nodes = await getAllNodesFromCache();
+      const node = nodes.find(n => n.agentToken === agentToken);
       
       if (!node) {
         set.status = 401;

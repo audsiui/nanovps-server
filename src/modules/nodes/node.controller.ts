@@ -10,7 +10,7 @@
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
 import { success, created, errors } from '../../utils/response';
-import { createNode, updateNode, getNodeById, getNodeList } from './node.service';
+import { createNode, updateNode, deleteNode, getNodeById, getNodeList } from './node.service';
 
 export const nodeController = new Elysia({
   prefix: '/admin/nodes',
@@ -140,6 +140,33 @@ export const nodeController = new Elysia({
       detail: {
         summary: '获取节点列表',
         description: '支持分页、状态筛选、区域筛选、关键词搜索',
+      },
+    },
+  )
+  // 删除节点（POST）
+  .post(
+    '/delete',
+    async ({ body, set }) => {
+      try {
+        await deleteNode(body.id);
+        return success(null, '节点删除成功');
+      } catch (error: any) {
+        if (error.message === '节点不存在') {
+          set.status = 404;
+          return errors.notFound(error.message);
+        }
+        set.status = 500;
+        return errors.internal(error.message);
+      }
+    },
+    {
+      auth: ['admin'],
+      body: t.Object({
+        id: t.Number(),
+      }),
+      detail: {
+        summary: '删除节点',
+        description: '根据ID删除节点',
       },
     },
   );

@@ -10,10 +10,12 @@ import {
   findByAgentToken,
   create,
   update,
+  remove,
   existsByName,
   existsByAgentToken,
   findAll,
 } from './node.repository';
+import { refreshNodeCache, removeNodeFromCache } from './node-cache.service';
 import type { NewNode } from '../../db/schema/nodes';
 
 /**
@@ -55,7 +57,12 @@ export async function createNode(data: {
     regionId: data.regionId,
   };
 
-  return create(newNodeData);
+  const result = await create(newNodeData);
+
+  // 刷新缓存
+  await refreshNodeCache(result.id);
+
+  return result;
 }
 
 /**
@@ -97,7 +104,14 @@ export async function updateNode(
     }
   }
 
-  return update(id, data);
+  const result = await update(id, data);
+
+  // 刷新缓存
+  if (result) {
+    await refreshNodeCache(result.id);
+  }
+
+  return result;
 }
 
 /**
@@ -144,4 +158,20 @@ export async function getNodeList(params: {
       totalPages: Math.ceil(total / pageSize),
     },
   };
+}
+
+/**
+ * 删除节点
+ */
+export async function deleteNode(id: number) {
+  // 检查节点是否存在
+  const node = await findById(id);
+  if (!node) {
+    throw new Error('节点不存在');
+  }
+
+  await remove(id);
+
+  // 从缓存中删除
+  await removeNodeFromCache(id);
 }
