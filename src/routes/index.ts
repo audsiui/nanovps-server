@@ -11,6 +11,7 @@ import { orderController } from '../modules/orders/order.controller';
 import { rechargeController } from '../modules/recharge/recharge.controller';
 import { giftCodeController } from '../modules/gift-codes/gift-code.controller';
 import { agentChannelController } from '../modules/agent-channel/agent-channel.controller';
+import { reportQueryController } from '../modules/agent-channel/report-query.controller';
 import Elysia from 'elysia';
 
 export const routes = new Elysia()
@@ -26,6 +27,7 @@ export const routes = new Elysia()
   .use(orderController)
   .use(rechargeController)
   .use(agentChannelController)
+  .use(reportQueryController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),

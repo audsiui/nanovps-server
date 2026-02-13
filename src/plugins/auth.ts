@@ -21,6 +21,11 @@ export const authPlugin = new Elysia({ name: 'auth/plugin' })
   )
   .macro({
     auth: (options: UserRole[] | boolean = true) => {
+      // 如果 auth 为 false，跳过鉴权
+      if (options === false) {
+        return undefined;
+      }
+
       const roles = Array.isArray(options) ? options : undefined;
 
       return {
