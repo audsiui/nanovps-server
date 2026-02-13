@@ -158,7 +158,7 @@ export async function deletePromoCode(id: number): Promise<void> {
 export async function validateAndCalculate(
   code: string,
   amount: number,
-  usageType: 'purchase' | 'recharge',
+  usageType: 'purchase',
   userId: number
 ): Promise<{
   valid: boolean;
@@ -185,12 +185,6 @@ export async function validateAndCalculate(
   }
   if (promoCode.endAt && now > new Date(promoCode.endAt)) {
     return { valid: false, message: '优惠码已过期', discountAmount: 0, finalAmount: amount };
-  }
-
-  // 检查使用场景
-  if (promoCode.usageType !== 'both' && promoCode.usageType !== usageType) {
-    const typeText = usageType === 'purchase' ? '购买实例' : '充值';
-    return { valid: false, message: `该优惠码不能用于${typeText}`, discountAmount: 0, finalAmount: amount };
   }
 
   // 检查总使用次数限制
@@ -244,21 +238,18 @@ export async function usePromoCode(params: {
   promoCodeId: number;
   userId: number;
   orderId?: number;
-  rechargeId?: number;
-  usageType: 'purchase' | 'recharge';
   originalAmount: number;
   discountAmount: number;
   finalAmount: number;
 }) {
-  const { promoCodeId, userId, orderId, rechargeId, usageType, originalAmount, discountAmount, finalAmount } = params;
+  const { promoCodeId, userId, orderId, originalAmount, discountAmount, finalAmount } = params;
 
   // 创建使用记录
   await createUsageRecord({
     promoCodeId,
     userId,
     orderId: orderId || null,
-    rechargeId: rechargeId || null,
-    usageType,
+    usageType: 'purchase',
     originalAmount: originalAmount.toString(),
     discountAmount: discountAmount.toString(),
     finalAmount: finalAmount.toString(),

@@ -100,7 +100,6 @@ export const promoCodeController = new Elysia({
         value: t.String(),
         minAmount: t.Optional(t.String()),
         maxDiscount: t.Optional(t.String()),
-        usageType: t.Optional(t.Union([t.Literal('purchase'), t.Literal('recharge'), t.Literal('both')])),
         usageLimit: t.Optional(t.Number({ minimum: 1 })),
         perUserLimit: t.Optional(t.Number({ minimum: 1 })),
         startAt: t.Optional(t.String()),
@@ -140,7 +139,6 @@ export const promoCodeController = new Elysia({
         value: t.Optional(t.String()),
         minAmount: t.Optional(t.String()),
         maxDiscount: t.Optional(t.String()),
-        usageType: t.Optional(t.Union([t.Literal('purchase'), t.Literal('recharge'), t.Literal('both')])),
         usageLimit: t.Optional(t.Number({ minimum: 1 })),
         perUserLimit: t.Optional(t.Number({ minimum: 1 })),
         startAt: t.Optional(t.String()),
@@ -219,9 +217,9 @@ export const promoCodeController = new Elysia({
     '/validate',
     async ({ query, user, set }) => {
       try {
-        const { code, amount, usageType } = query;
+        const { code, amount } = query;
         
-        if (!code || !amount || !usageType) {
+        if (!code || !amount) {
           set.status = 400;
           return errors.badRequest('缺少必要参数');
         }
@@ -229,7 +227,7 @@ export const promoCodeController = new Elysia({
         const result = await validateAndCalculate(
           code,
           Number(amount),
-          usageType as 'purchase' | 'recharge',
+          'purchase',
           user.userId
         );
 
@@ -244,7 +242,6 @@ export const promoCodeController = new Elysia({
       query: t.Object({
         code: t.String(),
         amount: t.String(),
-        usageType: t.Union([t.Literal('purchase'), t.Literal('recharge')]),
       }),
       detail: {
         summary: '验证优惠码',

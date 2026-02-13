@@ -60,7 +60,7 @@ export const orderController = new Elysia({
     '/create',
     async ({ body, user, set }) => {
       try {
-        const { nodePlanId, billingCycle, durationMonths, promoCode } = body;
+        const { nodePlanId, billingCycle, durationMonths, promoCode, imageId } = body;
 
         const result = await createOrder({
           userId: user.userId,
@@ -68,6 +68,7 @@ export const orderController = new Elysia({
           billingCycle,
           durationMonths,
           promoCode,
+          imageId,
         });
 
         set.status = 201;
@@ -84,10 +85,11 @@ export const orderController = new Elysia({
         billingCycle: t.String(),
         durationMonths: t.Number({ minimum: 1 }),
         promoCode: t.Optional(t.String()),
+        imageId: t.Number(),
       }),
       detail: {
         summary: '创建订单',
-        description: '创建实例购买订单，支持使用优惠码',
+        description: '创建实例购买订单，支持使用优惠码，需指定系统镜像',
       },
     }
   )

@@ -19,12 +19,24 @@ import {
 import {
   validateAndCalculate,
 } from '../promo-codes/promo-code.service';
+import {
+  createInstance,
+  getContainerCreateParams,
+  setContainerInfo,
+  setInstanceError,
+  generateRootPassword,
+} from '../instances/instance.service';
+import {
+  sendContainerCreateCommand,
+  isNodeConnected,
+} from '../agent-channel/command.service';
 import { db, orders, nodePlans, promoCodeUsages, promoCodes, users } from '../../db';
 import type { NewOrder, Order } from '../../db/schema';
 import { sql, eq } from 'drizzle-orm';
 
 /**
  * 创建订单并立即支付（支持优惠码）- 使用事务确保原子性
+ * 支付成功后自动创建实例并触发容器创建
  */
 export async function createOrder(params: {
   userId: number;
@@ -32,8 +44,10 @@ export async function createOrder(params: {
   billingCycle: string;
   durationMonths: number;
   promoCode?: string;
+  imageId: number;
 }): Promise<{
   order: Order;
+  instanceId: number;
   discountInfo?: {
     promoCode: string;
     originalAmount: number;
@@ -41,7 +55,7 @@ export async function createOrder(params: {
     finalAmount: number;
   };
 }> {
-  const { userId, nodePlanId, billingCycle, durationMonths, promoCode } = params;
+  const { userId, nodePlanId, billingCycle, durationMonths, promoCode, imageId } = params;
 
   // 1. 验证套餐是否存在
   const nodePlan = await findNodePlanById(nodePlanId);
@@ -158,7 +172,23 @@ export async function createOrder(params: {
       })
       .returning();
 
-    // 6.4 如果使用了优惠码，创建使用记录并增加使用次数
+    // 6.4 创建实例记录
+    const expiresAt = new Date(now.getTime() + durationMonths * 30 * 24 * 60 * 60 * 1000);
+    const instance = await createInstance({
+      userId,
+      nodeId: nodePlan.nodeId,
+      nodePlanId,
+      imageId,
+      expiresAt,
+    });
+
+    // 6.5 更新订单的 instanceId
+    await tx
+      .update(orders)
+      .set({ instanceId: instance.id })
+      .where(eq(orders.id, order.id));
+
+    // 6.6 如果使用了优惠码，创建使用记录并增加使用次数
     if (appliedPromoCode) {
       await tx.insert(promoCodeUsages).values({
         promoCodeId: appliedPromoCode.id,
@@ -180,8 +210,14 @@ export async function createOrder(params: {
         .where(eq(promoCodes.id, appliedPromoCode.id));
     }
 
+    // 6.7 异步触发容器创建（不阻塞事务）
+    triggerContainerCreation(instance.id, nodePlan.nodeId).catch((err) => {
+      console.error(`[Order] 容器创建失败 [instanceId=${instance.id}]:`, err);
+    });
+
     return {
       order,
+      instanceId: instance.id,
       discountInfo: appliedPromoCode
         ? {
             promoCode: appliedPromoCode.code,
@@ -192,6 +228,58 @@ export async function createOrder(params: {
         : undefined,
     };
   });
+}
+
+/**
+ * 异步触发容器创建
+ * 从实例服务获取创建参数，发送命令到 Agent
+ */
+async function triggerContainerCreation(instanceId: number, nodeId: number): Promise<void> {
+  try {
+    // 获取容器创建参数
+    const params = await getContainerCreateParams(instanceId);
+    const rootPassword = generateRootPassword();
+
+    // 检查节点是否在线
+    if (!isNodeConnected(nodeId)) {
+      console.warn(`[Order] 节点离线，容器创建将延迟 [nodeId=${nodeId}, instanceId=${instanceId}]`);
+      // 节点离线时，实例保持"创建中"状态，等待节点上线后通过其他机制重试
+      return;
+    }
+
+    // 发送创建命令
+    const result = await sendContainerCreateCommand(nodeId, {
+      name: params.containerName,
+      image: params.imageRef,
+      hostname: params.hostname,
+      memory: params.memory,
+      memorySwap: params.memory * 2,
+      storageOpt: `size=${params.diskGb}G`,
+      cpus: params.cpus,
+      sshPort: params.sshPort,
+      network: params.network,
+      ip: params.internalIp,
+      ip6: params.internalIp6,
+      env: {
+        ROOT_PASSWORD: rootPassword,
+      },
+      restartPolicy: 'always',
+    });
+
+    if (result.success && result.containerId) {
+      // 更新实例信息
+      await setContainerInfo(instanceId, result.containerId, params.internalIp);
+      console.log(`[Order] 容器创建成功 [instanceId=${instanceId}, containerId=${result.containerId}]`);
+    } else {
+      // 创建失败，设置实例为错误状态
+      await setInstanceError(instanceId, result.message);
+      console.error(`[Order] 容器创建失败 [instanceId=${instanceId}]: ${result.message}`);
+    }
+  } catch (error: any) {
+    // 异常情况，设置实例为错误状态
+    await setInstanceError(instanceId, error.message);
+    console.error(`[Order] 容器创建异常 [instanceId=${instanceId}]:`, error);
+  }
 }
 
 /**

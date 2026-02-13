@@ -28,12 +28,10 @@ export const promoCodeUsages = pgTable(
     userId: bigint("user_id", { mode: "number" }).notNull(),
     /** 订单ID（购买实例时使用） */
     orderId: bigint("order_id", { mode: "number" }),
-    /** 充值记录ID（充值时使用，预留字段） */
-    rechargeId: bigint("recharge_id", { mode: "number" }),
 
     // ========== 使用场景 ==========
-    /** 使用场景: purchase | recharge */
-    usageType: varchar("usage_type", { length: 20 }).notNull(),
+    /** 使用场景: purchase */
+    usageType: varchar("usage_type", { length: 20 }).notNull().default("purchase"),
 
     // ========== 金额信息 ==========
     /** 原始金额 */

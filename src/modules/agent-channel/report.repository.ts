@@ -214,3 +214,82 @@ export async function deleteBefore(timestamp: number): Promise<number> {
   
   return result.length;
 }
+
+/**
+ * 容器历史数据点（用于图表展示）
+ */
+export interface ContainerHistoryPoint {
+  timestamp: number;
+  cpuPercent: number;
+  memoryUsagePercent: number;
+  memoryUsage: number;
+  memoryLimit: number;
+  networkRxRate: number;
+  networkTxRate: number;
+  networkRxTotal: number;
+  networkTxTotal: number;
+}
+
+/**
+ * 查询特定容器的历史监控数据
+ * 用于实例详情页的图表展示
+ */
+export async function findContainerHistory(params: {
+  agentId: string;
+  containerId: string;
+  startTime: number;
+  endTime: number;
+}): Promise<{ list: ContainerHistoryPoint[]; total: number }> {
+  const { agentId, containerId, startTime, endTime } = params;
+
+  // 1. 查询该 agentId 在时间范围内的所有 reports
+  const reports = await db
+    .select({
+      id: nodeReports.id,
+      timestamp: nodeReports.timestamp,
+    })
+    .from(nodeReports)
+    .where(and(
+      eq(nodeReports.agentId, agentId),
+      gte(nodeReports.timestamp, startTime),
+      lte(nodeReports.timestamp, endTime)
+    ))
+    .orderBy(desc(nodeReports.timestamp));
+
+  if (reports.length === 0) {
+    return { list: [], total: 0 };
+  }
+
+  // 2. 获取所有 reportId
+  const reportIds = reports.map(r => r.id);
+
+  // 3. 查询容器数据（筛选特定 containerId）
+  const containers = await db
+    .select()
+    .from(nodeReportContainers)
+    .where(and(
+      sql`${nodeReportContainers.reportId} IN (${sql.join(reportIds.map(id => sql`${id}`), sql`, `)})`,
+      eq(nodeReportContainers.containerId, containerId)
+    ));
+
+  // 4. 创建 reportId -> timestamp 的映射
+  const reportTimestampMap = new Map(reports.map(r => [r.id, r.timestamp]));
+
+  // 5. 组装结果（按时间升序排列，便于图表展示）
+  const list: ContainerHistoryPoint[] = containers
+    .map(c => ({
+      timestamp: reportTimestampMap.get(c.reportId) || 0,
+      cpuPercent: Number(c.cpuPercent),
+      memoryUsagePercent: Number(c.memoryUsagePercent),
+      memoryUsage: c.memoryUsage,
+      memoryLimit: c.memoryLimit,
+      networkRxRate: c.networkRxRate,
+      networkTxRate: c.networkTxRate,
+      networkRxTotal: c.networkRxTotal,
+      networkTxTotal: c.networkTxTotal,
+    }))
+    .filter(p => p.timestamp > 0)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  return { list, total: list.length };
+}

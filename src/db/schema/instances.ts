@@ -49,8 +49,10 @@ export const instances = pgTable(
     bandwidthMbps: integer("bandwidth_mbps"),
 
     // ========== 网络配置（NAT机器，不分配独立IP） ==========
-    /** 内网IP地址（容器内部IP，如 172.17.0.x） */
+    /** 内网IP地址（容器内部IP，如 10.89.0.x） */
     internalIp: varchar("internal_ip", { length: 15 }),
+    /** SSH 端口（公式：10000 + 实例ID） */
+    sshPort: integer("ssh_port"),
 
     // ========== 状态管理 ==========
     /**

@@ -7,6 +7,12 @@ import {
   type AgentReport,
 } from './report-cache.service';
 import { saveReport, type ContainerData } from './report.repository';
+import {
+  registerNodeConnection,
+  unregisterNodeConnection,
+  handleCommandResponse,
+  type CommandResponse,
+} from './command.service';
 import type { Node } from '../../db/schema/nodes';
 
 // WebSocket 连接与节点的映射表
@@ -15,12 +21,13 @@ const wsNodeMap = new Map<string, Node>();
 export const agentChannelController = new Elysia({
   prefix: '/agent',
   detail: { tags: ['Agent 消息通道'] },
-}).ws('/', {
+}).ws('/ws', {
   async beforeHandle({ query, set }) {
     const agentToken = query.key?.toString();
 
     if (!agentToken) {
       set.status = 401;
+      console.log("未检测到key")
       return { error: 'Missing Agent Token' };
     }
 
@@ -45,22 +52,29 @@ export const agentChannelController = new Elysia({
 
     if (node) {
       wsNodeMap.set(ws.id, node);
+      // 注册到命令服务，支持下行命令
+      registerNodeConnection(node.id, ws);
       console.log(`[Agent] 节点已连接 [nodeId=${node.id}, name=${node.name}]`);
     }
   },
 
-  async message(ws, message) {
+  async message(ws, message: any) {
     const node = wsNodeMap.get(ws.id);
     if (!node) {
       console.error(`[Agent] 无法找到节点信息 [ws.id=${ws.id}]`);
       return;
     }
 
-    const report = message as AgentReport;
+    // 处理命令响应
+    if (message.type === 'response') {
+      handleCommandResponse(message as CommandResponse);
+      return;
+    }
 
-    // 只处理 report 类型的消息
+    // 处理上报消息
+    const report = message as AgentReport;
     if (report.type !== 'report' || !report.data) {
-      console.log(`[Agent] 收到非上报消息 [nodeId=${node.id}]:`, report);
+      console.log(`[Agent] 收到未知类型消息 [nodeId=${node.id}]:`, report);
       return;
     }
 
@@ -105,6 +119,8 @@ export const agentChannelController = new Elysia({
     const node = wsNodeMap.get(ws.id);
     if (node) {
       console.log(`[Agent] 节点已断开 [nodeId=${node.id}, name=${node.name}]`);
+      // 从命令服务注销
+      unregisterNodeConnection(node.id);
       wsNodeMap.delete(ws.id);
     }
   },

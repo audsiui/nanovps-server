@@ -12,6 +12,7 @@ import { rechargeController } from '../modules/recharge/recharge.controller';
 import { giftCodeController } from '../modules/gift-codes/gift-code.controller';
 import { agentChannelController } from '../modules/agent-channel/agent-channel.controller';
 import { reportQueryController } from '../modules/agent-channel/report-query.controller';
+import { instanceController } from '../modules/instances/instance.controller';
 import Elysia from 'elysia';
 
 export const routes = new Elysia()
@@ -28,6 +29,7 @@ export const routes = new Elysia()
   .use(rechargeController)
   .use(agentChannelController)
   .use(reportQueryController)
+  .use(instanceController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),

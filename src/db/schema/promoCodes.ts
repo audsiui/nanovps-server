@@ -28,8 +28,6 @@ export const promoCodeTypeEnum = pgEnum("promo_code_type", [
 /** 优惠码使用场景 */
 export const promoCodeUsageTypeEnum = pgEnum("promo_code_usage_type", [
   "purchase",  // 仅购买实例可用
-  "recharge",  // 仅充值可用
-  "both",      // 两者都可用
 ]);
 
 // ========== 表定义 ==========
@@ -56,8 +54,8 @@ export const promoCodes = pgTable(
     maxDiscount: decimal("max_discount", { precision: 10, scale: 2 }),
 
     // ========== 使用范围 ==========
-    /** 使用场景: purchase(购买) | recharge(充值) | both(两者) */
-    usageType: promoCodeUsageTypeEnum("usage_type").notNull().default("both"),
+    /** 使用场景: purchase(购买) */
+    usageType: promoCodeUsageTypeEnum("usage_type").notNull().default("purchase"),
 
     // ========== 使用限制 ==========
     /** 总使用次数限制，null表示不限 */
