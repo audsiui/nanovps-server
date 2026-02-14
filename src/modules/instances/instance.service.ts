@@ -14,9 +14,11 @@ import {
   updateContainerInfo,
   softDelete,
   getUsedIpsByNodeId,
+  findByNodeIdAndStatus,
 } from './instance.repository';
 import { findById as findNodePlanById } from '../node-plans/node-plan.repository';
 import { findById as findImageById } from '../images/image.repository';
+import { sendContainerCreateCommand } from '../agent-channel/command.service';
 import type { NewInstance, Instance } from '../../db/schema';
 import { db, instances } from '../../db';
 import { sql, eq } from 'drizzle-orm';
@@ -383,4 +385,64 @@ export async function deleteInstance(instanceId: number, userId: number): Promis
   }
   
   return updated;
+}
+
+
+/**
+ * 重试节点上待创建的实例
+ * 当节点上线时调用，为所有 CREATING 状态的实例触发容器创建
+ */
+export async function retryPendingInstances(nodeId: number): Promise<void> {
+  const pendingInstances = await findByNodeIdAndStatus(nodeId, [InstanceStatus.CREATING, InstanceStatus.ERROR]);
+  
+  if (pendingInstances.length === 0) {
+    return;
+  }
+  
+  console.log(`[Instance] 发现 ${pendingInstances.length} 个待创建实例 [nodeId=${nodeId}]`);
+  
+  for (const instance of pendingInstances) {
+    triggerContainerCreationForInstance(instance.id, nodeId).catch((err) => {
+      console.error(`[Instance] 容器创建失败 [instanceId=${instance.id}]:`, err);
+    });
+  }
+}
+
+/**
+ * 为单个实例触发容器创建
+ */
+async function triggerContainerCreationForInstance(instanceId: number, nodeId: number): Promise<void> {
+  try {
+    const params = await getContainerCreateParams(instanceId);
+    const rootPassword = generateRootPassword();
+    
+    const result = await sendContainerCreateCommand(nodeId, {
+      name: params.containerName,
+      image: params.imageRef,
+      hostname: params.hostname,
+      memory: params.memory,
+      memorySwap: params.memory * 2,
+      storageOpt: `size=${params.diskGb}G`,
+      cpus: params.cpus,
+      sshPort: params.sshPort,
+      network: params.network,
+      ip: params.internalIp,
+      ip6: params.internalIp6,
+      env: {
+        ROOT_PASSWORD: rootPassword,
+      },
+      restartPolicy: 'always',
+    });
+    
+    if (result.success && result.containerId) {
+      await setContainerInfo(instanceId, result.containerId, params.internalIp);
+      console.log(`[Instance] 容器创建成功 [instanceId=${instanceId}, containerId=${result.containerId}]`);
+    } else {
+      await setInstanceError(instanceId, result.message);
+      console.error(`[Instance] 容器创建失败 [instanceId=${instanceId}]: ${result.message}`);
+    }
+  } catch (error: any) {
+    await setInstanceError(instanceId, error.message);
+    console.error(`[Instance] 容器创建异常 [instanceId=${instanceId}]:`, error);
+  }
 }

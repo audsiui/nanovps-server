@@ -10,6 +10,7 @@ import { nodes } from '../../db/schema/nodes';
 import { nodePlans } from '../../db/schema/nodePlans';
 import { planTemplates } from '../../db/schema/planTemplates';
 import { eq, and, asc, desc } from 'drizzle-orm';
+import { isNodeConnected } from '../agent-channel/command.service';
 
 /**
  * 套餐信息（包含模板详情）
@@ -295,5 +296,59 @@ export async function getPlanDetail(nodePlanId: number) {
       name: region.name,
       code: region.code,
     },
+  };
+}
+
+
+/**
+ * 获取套餐节点的在线状态
+ * 用于购买前检查节点是否在线
+ */
+export async function getNodePlanStatus(nodePlanId: number): Promise<{
+  online: boolean;
+  nodeId: number;
+  nodeName: string;
+  message?: string;
+}> {
+  const result = await db
+    .select({
+      nodeId: nodes.id,
+      nodeName: nodes.name,
+      nodeStatus: nodes.status,
+    })
+    .from(nodePlans)
+    .innerJoin(nodes, eq(nodePlans.nodeId, nodes.id))
+    .where(eq(nodePlans.id, nodePlanId))
+    .limit(1);
+
+  if (result.length === 0) {
+    return {
+      online: false,
+      nodeId: 0,
+      nodeName: '',
+      message: '套餐不存在',
+    };
+  }
+
+  const { nodeId, nodeName, nodeStatus } = result[0];
+
+  // 检查节点是否被禁用
+  if (nodeStatus !== 1) {
+    return {
+      online: false,
+      nodeId,
+      nodeName,
+      message: '节点已禁用',
+    };
+  }
+
+  // 检查 WebSocket 连接状态
+  const online = isNodeConnected(nodeId);
+
+  return {
+    online,
+    nodeId,
+    nodeName,
+    message: online ? undefined : '节点离线，容器将在节点上线后自动创建',
   };
 }

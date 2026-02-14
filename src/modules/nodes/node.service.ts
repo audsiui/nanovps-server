@@ -16,6 +16,8 @@ import {
   findAll,
 } from './node.repository';
 import { refreshNodeCache, removeNodeFromCache } from './node-cache.service';
+import { isNodeConnected, getConnectedNodeIds } from '../agent-channel/command.service';
+import { getAgentFullData } from '../agent-channel/report-cache.service';
 import type { NewNode } from '../../db/schema/nodes';
 
 /**
@@ -122,7 +124,10 @@ export async function getNodeById(id: number) {
   if (!node) {
     throw new Error('节点不存在');
   }
-  return node;
+  return {
+    ...node,
+    isOnline: isNodeConnected(id),
+  };
 }
 
 
@@ -149,8 +154,17 @@ export async function getNodeList(params: {
 
   const { list, total } = await findAll(params);
 
+  // 获取所有在线节点 ID
+  const onlineNodeIds = new Set(getConnectedNodeIds());
+
+  // 为每个节点添加 isOnline 字段
+  const listWithOnline = list.map((node) => ({
+    ...node,
+    isOnline: onlineNodeIds.has(node.id),
+  }));
+
   return {
-    list,
+    list: listWithOnline,
     pagination: {
       page,
       pageSize,
@@ -174,4 +188,55 @@ export async function deleteNode(id: number) {
 
   // 从缓存中删除
   await removeNodeFromCache(id);
+}
+
+
+/**
+ * 获取节点实时数据（从 Redis 缓存）
+ */
+export async function getNodeRealtime(id: number) {
+  const node = await findById(id);
+  if (!node) {
+    throw new Error('节点不存在');
+  }
+
+  const isOnline = isNodeConnected(id);
+
+  // 如果节点离线，返回基本信息
+  if (!isOnline) {
+    return {
+      nodeId: node.id,
+      nodeName: node.name,
+      isOnline: false,
+      timestamp: null,
+      host: null,
+      containers: [],
+    };
+  }
+
+  // 从 Redis 获取实时数据
+  const agentId = node.agentToken;
+  const fullData = await getAgentFullData(agentId);
+
+  return {
+    nodeId: node.id,
+    nodeName: node.name,
+    isOnline: true,
+    timestamp: fullData.host?.timestamp || null,
+    host: fullData.host ? {
+      uptime: fullData.host.uptime,
+      cpu: fullData.host.cpu,
+      memory: fullData.host.memory,
+      network: fullData.host.network,
+      disks: fullData.host.disks,
+    } : null,
+    containers: Object.values(fullData.containers).map((c) => ({
+      id: c.id,
+      name: c.name,
+      cpuPercent: c.cpuPercent,
+      memory: c.memory,
+      network: c.network,
+      timestamp: c.timestamp,
+    })),
+  };
 }

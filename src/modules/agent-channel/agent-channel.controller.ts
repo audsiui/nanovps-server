@@ -13,6 +13,7 @@ import {
   handleCommandResponse,
   type CommandResponse,
 } from './command.service';
+import { retryPendingInstances } from '../instances/instance.service';
 import type { Node } from '../../db/schema/nodes';
 
 // WebSocket 连接与节点的映射表
@@ -55,6 +56,11 @@ export const agentChannelController = new Elysia({
       // 注册到命令服务，支持下行命令
       registerNodeConnection(node.id, ws);
       console.log(`[Agent] 节点已连接 [nodeId=${node.id}, name=${node.name}]`);
+      
+      // 重试待创建的实例
+      retryPendingInstances(node.id).catch((err) => {
+        console.error(`[Agent] 重试待创建实例失败 [nodeId=${node.id}]:`, err);
+      });
     }
   },
 

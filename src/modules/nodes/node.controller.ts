@@ -10,7 +10,7 @@
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
 import { success, created, errors } from '../../utils/response';
-import { createNode, updateNode, deleteNode, getNodeById, getNodeList } from './node.service';
+import { createNode, updateNode, deleteNode, getNodeById, getNodeList, getNodeRealtime } from './node.service';
 
 export const nodeController = new Elysia({
   prefix: '/admin/nodes',
@@ -105,6 +105,29 @@ export const nodeController = new Elysia({
       detail: {
         summary: '获取节点详情',
         description: '根据ID获取节点详细信息',
+      },
+    },
+  )
+  // 获取节点实时数据（GET）
+  .get(
+    '/realtime/:id',
+    async ({ params, set }) => {
+      try {
+        const data = await getNodeRealtime(Number(params.id));
+        return success(data);
+      } catch (error: any) {
+        set.status = 404;
+        return errors.notFound(error.message);
+      }
+    },
+    {
+      auth: ['admin'],
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        summary: '获取节点实时数据',
+        description: '获取节点的实时监控数据（CPU、内存、网络、容器等）',
       },
     },
   )

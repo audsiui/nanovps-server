@@ -185,3 +185,19 @@ export async function getUsedIpsByNodeId(nodeId: number): Promise<string[]> {
     .map(r => r.internalIp)
     .filter((ip): ip is string => ip !== null);
 }
+
+
+/**
+ * 根据节点ID和状态查找实例列表
+ * 用于节点上线时重试待创建的实例
+ */
+export async function findByNodeIdAndStatus(nodeId: number, statuses: number | number[]): Promise<Instance[]> {
+  const statusArray = Array.isArray(statuses) ? statuses : [statuses];
+  return db
+    .select()
+    .from(instances)
+    .where(and(
+      eq(instances.nodeId, nodeId),
+      sql`${instances.status} IN (${sql.join(statusArray.map(s => sql`${s}`), sql`, `)})`
+    ));
+}

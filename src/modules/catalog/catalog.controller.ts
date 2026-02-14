@@ -12,6 +12,7 @@ import {
   getCatalog,
   getCatalogByRegionId,
   getPlanDetail,
+  getNodePlanStatus,
 } from './catalog.service';
 
 export const catalogController = new Elysia({
@@ -91,5 +92,23 @@ export const catalogController = new Elysia({
         summary: '获取套餐详情',
         description: '获取指定套餐的详细信息，包含模板配置、节点和区域信息',
       },
-    }
+    },
+  )
+  // 获取套餐节点状态（购买前检查）
+  .get(
+    '/plan/:id/status',
+    async ({ params }) => {
+      const status = await getNodePlanStatus(Number(params.id));
+      return success(status);
+    },
+    {
+      auth: true,
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        summary: '获取套餐节点状态',
+        description: '检查套餐所在节点的在线状态，用于购买前提示',
+      },
+    },
   );
