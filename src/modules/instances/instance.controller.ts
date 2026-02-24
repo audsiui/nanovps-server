@@ -18,6 +18,7 @@ import {
   setContainerInfo,
   setInstanceError,
   generateRootPassword,
+  reinstallInstance,
   InstanceStatus,
 } from './instance.service';
 import {
@@ -349,8 +350,11 @@ export const instanceController = new Elysia({
           return errors.internal('节点信息缺失');
         }
 
-        // 5. 从 Redis 查询容器实时数据
-        const containerData = await getContainerLatest(node.agentToken, instance.containerId);
+        // 5. 从 Redis 查询容器实时数据（使用短 ID 匹配）
+        const shortContainerId = instance.containerId.length > 12 
+          ? instance.containerId.substring(0, 12) 
+          : instance.containerId;
+        const containerData = await getContainerLatest(node.agentToken, shortContainerId);
 
         if (!containerData) {
           return success({
@@ -447,6 +451,66 @@ export const instanceController = new Elysia({
       detail: {
         summary: '获取实例历史监控数据',
         description: '获取实例的历史监控数据，默认查询最近 24 小时',
+      },
+    }
+  )
+  // 重装实例
+  .post(
+    '/:id/reinstall',
+    async ({ params, body, user, set }) => {
+      try {
+        const instance = await getInstanceById(Number(params.id), user.userId);
+
+        if (instance.status === InstanceStatus.DESTROYED) {
+          set.status = 400;
+          return errors.badRequest('实例已销毁');
+        }
+
+        const { imageId, password } = body as { imageId?: number; password?: string };
+
+        if (imageId !== undefined && imageId !== null && imageId <= 0) {
+          set.status = 400;
+          return errors.badRequest('镜像ID无效');
+        }
+
+        if (password !== undefined && password !== null && password.length > 0) {
+          if (password.length < 6 || password.length > 32) {
+            set.status = 400;
+            return errors.badRequest('密码长度必须在 6-32 位之间');
+          }
+        }
+
+        const updated = await reinstallInstance(instance.id, user.userId, {
+          imageId,
+          password: password || undefined,
+        });
+
+        return success(updated, '实例重装成功');
+      } catch (error: any) {
+        if (error.message === '实例不存在') {
+          set.status = 404;
+          return errors.notFound(error.message);
+        }
+        if (error.message === '无权操作此实例') {
+          set.status = 403;
+          return errors.forbidden(error.message);
+        }
+        set.status = 400;
+        return errors.badRequest(error.message);
+      }
+    },
+    {
+      auth: true,
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: t.Object({
+        imageId: t.Optional(t.Number()),
+        password: t.Optional(t.String({ minLength: 6, maxLength: 32 })),
+      }),
+      detail: {
+        summary: '重装实例',
+        description: '重装实例，可以选择新镜像和新密码',
       },
     }
   );

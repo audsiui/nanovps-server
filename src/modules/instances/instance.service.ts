@@ -18,7 +18,7 @@ import {
 } from './instance.repository';
 import { findById as findNodePlanById } from '../node-plans/node-plan.repository';
 import { findById as findImageById } from '../images/image.repository';
-import { sendContainerCreateCommand } from '../agent-channel/command.service';
+import { sendContainerCreateCommand, isNodeConnected, sendContainerRemoveCommand } from '../agent-channel/command.service';
 import type { NewInstance, Instance } from '../../db/schema';
 import { db, instances } from '../../db';
 import { sql, eq } from 'drizzle-orm';
@@ -445,4 +445,83 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
     await setInstanceError(instanceId, error.message);
     console.error(`[Instance] 容器创建异常 [instanceId=${instanceId}]:`, error);
   }
+}
+
+
+/**
+ * 重装实例
+ * @param instanceId 实例 ID
+ * @param userId 用户 ID
+ * @param options 重装选项
+ */
+export async function reinstallInstance(
+  instanceId: number,
+  userId: number,
+  options?: {
+    imageId?: number;
+    password?: string;
+  }
+): Promise<Instance> {
+  const instance = await findById(instanceId);
+  if (!instance) {
+    throw new Error('实例不存在');
+  }
+  if (instance.userId !== userId) {
+    throw new Error('无权操作此实例');
+  }
+  if (instance.status === InstanceStatus.DESTROYED) {
+    throw new Error('实例已销毁');
+  }
+
+  const nodeId = instance.nodeId;
+
+  if (options?.imageId) {
+    const newImage = await findImageById(options.imageId);
+    if (!newImage) {
+      throw new Error('镜像不存在');
+    }
+    await update(instanceId, { imageId: options.imageId });
+  }
+
+  const rootPassword = options?.password || generateRootPassword();
+
+  const params = await getContainerCreateParams(instanceId);
+
+  if (instance.containerId) {
+    const isOnline = isNodeConnected(nodeId);
+    if (isOnline) {
+      await sendContainerRemoveCommand(nodeId, instance.containerId, true);
+    }
+  }
+
+  const result = await sendContainerCreateCommand(nodeId, {
+    name: params.containerName,
+    image: params.imageRef,
+    hostname: params.hostname,
+    memory: params.memory,
+    memorySwap: params.memory * 2,
+    storageOpt: `size=${params.diskGb}G`,
+    cpus: params.cpus,
+    sshPort: params.sshPort,
+    network: params.network,
+    ip: params.internalIp,
+    ip6: params.internalIp6,
+    env: {
+      ROOT_PASSWORD: rootPassword,
+    },
+    restartPolicy: 'always',
+  });
+
+  if (result.success && result.containerId) {
+    await setContainerInfo(instanceId, result.containerId, params.internalIp);
+  } else {
+    throw new Error(result.message || '重装失败');
+  }
+
+  const updated = await findById(instanceId);
+  if (!updated) {
+    throw new Error('重装后查询实例失败');
+  }
+
+  return updated;
 }

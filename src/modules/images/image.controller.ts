@@ -2,10 +2,7 @@
  * 镜像控制器
  *
  * @file image.controller.ts
- * @description 镜像模块的API接口定义，仅管理员可访问
- * 只使用 GET 和 POST 请求：
- * - GET: 查询（列表支持可选分页）
- * - POST: 创建、更新、删除
+ * @description 镜像模块的API接口定义
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
@@ -18,6 +15,29 @@ import {
   deleteImage,
 } from './image.service';
 
+// 用户端镜像控制器
+export const userImageController = new Elysia({
+  prefix: '/images',
+  detail: { tags: ['镜像'] },
+})
+  .use(authPlugin)
+  // 获取可用镜像列表（用户端）
+  .get(
+    '/available',
+    async () => {
+      const result = await getImages({ isActive: true });
+      return success(result);
+    },
+    {
+      auth: true,
+      detail: {
+        summary: '获取可用镜像列表',
+        description: '获取所有可用的镜像列表（用户端）',
+      },
+    },
+  );
+
+// 管理端镜像控制器
 export const imageController = new Elysia({
   prefix: '/admin/images',
   detail: { tags: ['镜像管理'] },
