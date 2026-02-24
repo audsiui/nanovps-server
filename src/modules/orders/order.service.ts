@@ -27,6 +27,9 @@ import {
   generateRootPassword,
 } from '../instances/instance.service';
 import {
+  findById as findInstanceById,
+} from '../instances/instance.repository';
+import {
   sendContainerCreateCommand,
   isNodeConnected,
 } from '../agent-channel/command.service';
@@ -247,6 +250,23 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
       return;
     }
 
+    // 生成 SSH 外部端口（10000-50000），检查是否被占用
+    const { findByNodeId } = await import('../nat-ports/nat-port.repository');
+    const usedPorts = await findByNodeId(nodeId);
+    const occupiedPorts = new Set(usedPorts.map(p => p.externalPort));
+    let sshPort: number;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    do {
+      sshPort = Math.floor(Math.random() * (50000 - 10000 + 1)) + 10000;
+      attempts++;
+    } while (occupiedPorts.has(sshPort) && attempts < maxAttempts);
+    
+    if (attempts >= maxAttempts) {
+      throw new Error('无法生成可用的 SSH 端口');
+    }
+
     // 发送创建命令
     const result = await sendContainerCreateCommand(nodeId, {
       name: params.containerName,
@@ -256,7 +276,6 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
       memorySwap: params.memory * 2,
       storageOpt: `size=${params.diskGb}G`,
       cpus: params.cpus,
-      sshPort: params.sshPort,
       network: params.network,
       ip: params.internalIp,
       ip6: params.internalIp6,
@@ -285,7 +304,7 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
             nodeId,
             protocol: 'tcp',
             internalPort: 22,
-            externalPort: params.sshPort,
+            externalPort: sshPort,
             description: 'SSH',
             status: NatPortStatus.ENABLED,
             lastSyncedAt: new Date(),
@@ -294,13 +313,13 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
           // 设置 iptables 转发
           await sendPortForwardCommand(nodeId, {
             protocol: 'tcp',
-            port: params.sshPort,
+            port: sshPort,
             targetIp: instance.internalIp,
             targetPort: 22,
             ipType: 'ipv4',
           });
 
-          console.log(`[Order] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${params.sshPort}]`);
+          console.log(`[Order] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${sshPort}]`);
         }
       } catch (error: any) {
         console.error(`[Order] 创建 SSH 端口映射失败：${error.message}`);

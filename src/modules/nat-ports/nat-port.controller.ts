@@ -9,17 +9,75 @@ import { authPlugin } from '../../plugins/auth';
 import { success, errors } from '../../utils/response';
 import {
   createPortMapping,
+  createPortMappings,
   deletePortMapping,
-  NatPortStatus,
 } from './nat-port.service';
 import { findByInstanceId } from './nat-port.repository';
 import { getInstanceById } from '../instances/instance.service';
+import { isNodeConnected } from '../agent-channel/command.service';
 
 export const natPortController = new Elysia({
   prefix: '/nat-ports',
   detail: { tags: ['端口映射'] },
 })
   .use(authPlugin)
+  // 校验端口是否可用
+  .get(
+    '/validate',
+    async ({ query, user, set }) => {
+      try {
+        const { instanceId, externalPort, protocol } = query;
+        
+        // 验证实例权限
+        const instance = await getInstanceById(Number(instanceId), user.userId);
+        
+        // 检查端口范围（限制在 10000-50000）
+        const extPort = Number(externalPort);
+        if (extPort < 10000 || extPort > 50000) {
+          set.status = 400;
+          return errors.badRequest('外网端口必须在 10000-50000 之间');
+        }
+        
+        // 检查节点是否在线
+        if (!isNodeConnected(instance.nodeId)) {
+          set.status = 503;
+          return errors.badRequest('节点离线，无法校验端口');
+        }
+        
+        // 检查端口是否被占用（排除当前实例）
+        const { isPortOccupied } = await import('./nat-port.repository');
+        const isOccupied = await isPortOccupied(instance.nodeId, extPort, protocol as 'tcp' | 'udp', Number(instanceId));
+        
+        return success({
+          available: !isOccupied,
+          message: isOccupied ? '端口已被占用' : '端口可用',
+        });
+      } catch (error: any) {
+        if (error.message === '实例不存在') {
+          set.status = 404;
+          return errors.notFound(error.message);
+        }
+        if (error.message === '无权访问此实例') {
+          set.status = 403;
+          return errors.forbidden(error.message);
+        }
+        set.status = 400;
+        return errors.badRequest(error.message);
+      }
+    },
+    {
+      auth: true,
+      query: t.Object({
+        instanceId: t.Number(),
+        externalPort: t.Number({ minimum: 10000, maximum: 50000 }),
+        protocol: t.Union([t.Literal('tcp'), t.Literal('udp')]),
+      }),
+      detail: {
+        summary: '校验端口是否可用',
+        description: '检查指定外部端口是否被占用（端口范围：10000-50000）',
+      },
+    }
+  )
   // 获取实例的端口映射列表
   .get(
     '/instance/:instanceId',
@@ -66,20 +124,21 @@ export const natPortController = new Elysia({
         const { instanceId, protocol, internalPort, externalPort, description } =
           body as {
             instanceId: number;
-            protocol: 'tcp' | 'udp';
+            protocol: 'tcp' | 'udp' | 'both';
             internalPort: number;
             externalPort: number;
             description?: string;
           };
 
-        const mapping = await createPortMapping(instanceId, user.userId, {
+        // 如果是 both，使用批量创建
+        const results = await createPortMappings(instanceId, user.userId, {
           protocol,
           internalPort,
           externalPort,
           description,
         });
 
-        return success(mapping, '端口映射创建成功');
+        return success(results.length === 1 ? results[0] : results, '端口映射创建成功');
       } catch (error: any) {
         if (error.message === '实例不存在') {
           set.status = 404;
@@ -105,14 +164,14 @@ export const natPortController = new Elysia({
       auth: true,
       body: t.Object({
         instanceId: t.Number(),
-        protocol: t.Union([t.Literal('tcp'), t.Literal('udp')]),
+        protocol: t.Union([t.Literal('tcp'), t.Literal('udp'), t.Literal('both')]),
         internalPort: t.Number({ minimum: 1, maximum: 65535 }),
-        externalPort: t.Number({ minimum: 1, maximum: 65535 }),
+        externalPort: t.Number({ minimum: 10000, maximum: 50000 }),
         description: t.Optional(t.String({ maxLength: 50 })),
       }),
       detail: {
         summary: '创建端口映射',
-        description: '为实例创建新的 NAT 端口映射',
+        description: '为实例创建新的 NAT 端口映射，支持 TCP、UDP 或 TCP+UDP 同时创建',
       },
     }
   )

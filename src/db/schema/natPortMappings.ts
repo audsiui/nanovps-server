@@ -38,22 +38,9 @@ export const natPortMappings = pgTable(
     /** 公网端口（宿主机映射端口） */
     externalPort: integer("external_port").notNull(),
 
-    // ========== 状态管理 ==========
-    /**
-     * 映射状态：
-     * 0=禁用, 1=启用, 2=同步中, 3=同步失败
-     */
-    status: smallint("status").default(1).notNull(),
-
     // ========== 描述信息 ==========
     /** 描述/用途（用户可自定义，如"SSH","HTTP"） */
     description: varchar("description", { length: 50 }),
-
-    // ========== 同步信息 ==========
-    /** 最后同步时间（与Agent同步状态） */
-    lastSyncedAt: timestamp("last_synced_at", { mode: "date" }),
-    /** 同步失败原因 */
-    syncError: varchar("sync_error", { length: 255 }),
 
     // ========== 时间字段 ==========
     /** 创建时间 */
@@ -73,8 +60,6 @@ export const natPortMappings = pgTable(
       table.nodeId,
       table.externalPort
     ),
-    // 按状态查询（用于同步任务）
-    idxNatMappingsStatus: index("idx_nat_mappings_status").on(table.status),
   })
 );
 

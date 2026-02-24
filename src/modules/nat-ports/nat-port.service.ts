@@ -10,8 +10,6 @@ import {
   findByNodeId,
   isPortOccupied,
   create,
-  update,
-  updateSyncStatus,
   remove,
   countByInstanceId,
 } from './nat-port.repository';
@@ -20,16 +18,6 @@ import { findById as findNodeById } from '../nodes/node.repository';
 import { findById as findPlanTemplateById } from '../plan-templates/plan-template.repository';
 import { sendPortForwardCommand, sendPortUnforwardCommand, isNodeConnected } from '../agent-channel/command.service';
 import type { NewNatPortMapping } from '../../db/schema';
-
-/**
- * 端口映射状态枚举
- */
-export const NatPortStatus = {
-  DISABLED: 0,
-  ENABLED: 1,
-  SYNCING: 2,
-  SYNC_ERROR: 3,
-} as const;
 
 /**
  * 创建端口映射
@@ -42,7 +30,8 @@ export async function createPortMapping(
     internalPort: number;
     externalPort: number;
     description?: string;
-  }
+  },
+  skipPortCheck: boolean = false // 批量创建时跳过端口检查
 ) {
   const instance = await findInstanceById(instanceId);
   if (!instance) {
@@ -77,18 +66,20 @@ export async function createPortMapping(
     throw new Error(`端口数量已达上限（当前套餐限制：${maxPorts}个）`);
   }
 
-  // 检查外部端口是否被占用
-  const occupied = await isPortOccupied(instance.nodeId, data.externalPort);
-  if (occupied) {
-    throw new Error(`端口 ${data.externalPort} 已被占用`);
+  // 检查外部端口是否被占用（排除当前实例）
+  if (!skipPortCheck) {
+    const occupied = await isPortOccupied(instance.nodeId, data.externalPort, data.protocol, instanceId);
+    if (occupied) {
+      throw new Error(`端口 ${data.externalPort} 已被占用`);
+    }
   }
 
-  // 验证端口范围
+  // 验证端口范围（外网端口限制在 10000-50000）
   if (data.internalPort < 1 || data.internalPort > 65535) {
     throw new Error('内网端口必须在 1-65535 之间');
   }
-  if (data.externalPort < 1 || data.externalPort > 65535) {
-    throw new Error('外网端口必须在 1-65535 之间');
+  if (data.externalPort < 10000 || data.externalPort > 50000) {
+    throw new Error('外网端口必须在 10000-50000 之间');
   }
 
   // 创建映射记录
@@ -99,8 +90,6 @@ export async function createPortMapping(
     internalPort: data.internalPort,
     externalPort: data.externalPort,
     description: data.description,
-    status: NatPortStatus.ENABLED,
-    lastSyncedAt: null,
   };
 
   const created = await create(mapping);
@@ -108,27 +97,62 @@ export async function createPortMapping(
   // 同步到 Agent
   if (isNodeConnected(instance.nodeId)) {
     try {
-      const result = await sendPortForwardCommand(instance.nodeId, {
+      await sendPortForwardCommand(instance.nodeId, {
         protocol: data.protocol,
         port: data.externalPort,
         targetIp: instance.internalIp!,
         targetPort: data.internalPort,
         ipType: 'ipv4',
       });
-
-      if (result.success) {
-        await updateSyncStatus(created.id, NatPortStatus.ENABLED);
-      } else {
-        await updateSyncStatus(created.id, NatPortStatus.SYNC_ERROR, result.message);
-      }
     } catch (error: any) {
-      await updateSyncStatus(created.id, NatPortStatus.SYNC_ERROR, error.message);
+      console.error(`[NAT] 同步 Agent 失败：${error.message}`);
     }
-  } else {
-    await updateSyncStatus(created.id, NatPortStatus.SYNC_ERROR, '节点离线');
   }
 
   return created;
+}
+
+/**
+ * 批量创建端口映射（支持 TCP+UDP 同时创建）
+ */
+export async function createPortMappings(
+  instanceId: number,
+  userId: number,
+  data: {
+    protocol: 'tcp' | 'udp' | 'both';
+    internalPort: number;
+    externalPort: number;
+    description?: string;
+  }
+) {
+  const protocols: Array<'tcp' | 'udp'> = data.protocol === 'both' ? ['tcp', 'udp'] : [data.protocol];
+  const results = [];
+  
+  // 先检查所有协议是否都可用
+  const instance = await findInstanceById(instanceId);
+  if (!instance) {
+    throw new Error('实例不存在');
+  }
+  
+  for (const protocol of protocols) {
+    const occupied = await isPortOccupied(instance.nodeId, data.externalPort, protocol, instanceId);
+    if (occupied) {
+      throw new Error(`${protocol.toUpperCase()} 端口 ${data.externalPort} 已被占用`);
+    }
+  }
+  
+  // 都可用后再创建
+  for (const protocol of protocols) {
+    const result = await createPortMapping(instanceId, userId, {
+      protocol,
+      internalPort: data.internalPort,
+      externalPort: data.externalPort,
+      description: data.description,
+    }, true); // 跳过端口检查，因为已经检查过了
+    results.push(result);
+  }
+  
+  return results;
 }
 
 /**
@@ -196,9 +220,8 @@ export async function syncInstancePortMappings(instanceId: number): Promise<void
         targetPort: mapping.internalPort,
         ipType: 'ipv4',
       });
-      await updateSyncStatus(mapping.id, NatPortStatus.ENABLED);
     } catch (error: any) {
-      await updateSyncStatus(mapping.id, NatPortStatus.SYNC_ERROR, error.message);
+      console.error(`[NAT] 同步端口失败：${error.message}`);
     }
   }
 }

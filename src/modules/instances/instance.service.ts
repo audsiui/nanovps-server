@@ -43,7 +43,8 @@ const NETWORK_CONFIG = {
   name: 'vps-net',
   ipv4Base: '10.89.0',
   ipv6Base: 'fd00:dead:beef::',
-  sshPortBase: 10000,
+  sshPortMin: 10000,
+  sshPortMax: 50000,
 };
 
 /**
@@ -84,11 +85,18 @@ function calculateIPv4(instanceId: number): string {
 
 /**
  * 计算内网 IPv6 地址
- * 规则：fd00:dead:beef::(实例ID + 1)
+ * 规则：fd00:dead:beef::(实例 ID + 1)
  */
 function calculateIPv6(instanceId: number): string {
   const suffix = instanceId + 1;
   return `${NETWORK_CONFIG.ipv6Base}${suffix.toString(16)}`;
+}
+
+/**
+ * 生成随机 SSH 外部端口（10000-50000）
+ */
+function generateSSHPort(): number {
+  return Math.floor(Math.random() * (NETWORK_CONFIG.sshPortMax - NETWORK_CONFIG.sshPortMin + 1)) + NETWORK_CONFIG.sshPortMin;
 }
 
 /**
@@ -150,17 +158,15 @@ export async function createInstance(params: {
     .values(instanceData)
     .returning();
 
-  // 使用 ID 计算 IP 和端口
+  // 使用 ID 计算 IP
   const instanceId = newInstance.id;
   const internalIp = calculateIPv4(instanceId);
-  const sshPort = calculateSSHPort(instanceId);
 
-  // 更新记录（填入正确的 IP 和端口，以及套餐的资源配置）
+  // 更新记录（填入正确的 IP 和套餐的资源配置）
   const [updatedInstance] = await db
     .update(instances)
     .set({
       internalIp,
-      sshPort,
       // 从套餐模板获取资源配置
       cpu: sql`(SELECT cpu FROM plan_templates WHERE id = (SELECT plan_template_id FROM node_plans WHERE id = ${nodePlanId}))`,
       ramMb: sql`(SELECT ram_mb FROM plan_templates WHERE id = (SELECT plan_template_id FROM node_plans WHERE id = ${nodePlanId}))`,
@@ -271,7 +277,6 @@ export async function getContainerCreateParams(instanceId: number): Promise<{
   hostname: string;
   memory: number;
   cpus: number;
-  sshPort: number;
   internalIp: string;
   internalIp6: string;
   network: string;
@@ -293,7 +298,6 @@ export async function getContainerCreateParams(instanceId: number): Promise<{
     hostname: instance.hostname || `vps-${instance.id}`,
     memory: instance.ramMb * 1024 * 1024,
     cpus: instance.cpu,
-    sshPort: calculateSSHPort(instance.id),
     internalIp: instance.internalIp || calculateIPv4(instance.id),
     internalIp6: calculateIPv6(instance.id),
     network: NETWORK_CONFIG.name,
@@ -424,7 +428,6 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
       memorySwap: params.memory * 2,
       storageOpt: `size=${params.diskGb}G`,
       cpus: params.cpus,
-      sshPort: params.sshPort,
       network: params.network,
       ip: params.internalIp,
       ip6: params.internalIp6,
@@ -440,18 +443,34 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
       
       // 创建 SSH 端口映射
       try {
-        const { create, countByInstanceId } = await import('../nat-ports/nat-port.repository');
+        const { create: createPort, countByInstanceId, findByNodeId } = await import('../nat-ports/nat-port.repository');
         const { NatPortStatus } = await import('../nat-ports/nat-port.service');
         const { sendPortForwardCommand } = await import('../agent-channel/command.service');
         
+        // 生成随机 SSH 外部端口（10000-50000），检查是否被占用
+        let sshPort: number;
+        let attempts = 0;
+        const maxAttempts = 10;
+        const usedPorts = await findByNodeId(nodeId);
+        const occupiedPorts = new Set(usedPorts.map(p => p.externalPort));
+        
+        do {
+          sshPort = generateSSHPort();
+          attempts++;
+        } while (occupiedPorts.has(sshPort) && attempts < maxAttempts);
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('无法生成可用的 SSH 端口');
+        }
+        
         const existingCount = await countByInstanceId(instanceId);
         if (existingCount === 0) {
-          await create({
+          await createPort({
             instanceId,
             nodeId,
             protocol: 'tcp',
             internalPort: 22,
-            externalPort: params.sshPort,
+            externalPort: sshPort,
             description: 'SSH',
             status: NatPortStatus.ENABLED,
             lastSyncedAt: new Date(),
@@ -460,13 +479,13 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
         
         await sendPortForwardCommand(nodeId, {
           protocol: 'tcp',
-          port: params.sshPort,
+          port: sshPort,
           targetIp: params.internalIp,
           targetPort: 22,
           ipType: 'ipv4',
         });
         
-        console.log(`[Instance] SSH 端口映射已创建 [instanceId=${instanceId}]`);
+        console.log(`[Instance] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${sshPort}]`);
       } catch (error: any) {
         console.error(`[Instance] 创建 SSH 端口映射失败：${error.message}`);
       }
@@ -533,7 +552,6 @@ export async function reinstallInstance(
     memorySwap: params.memory * 2,
     storageOpt: `size=${params.diskGb}G`,
     cpus: params.cpus,
-    sshPort: params.sshPort,
     network: params.network,
     ip: params.internalIp,
     ip6: params.internalIp6,
@@ -548,36 +566,57 @@ export async function reinstallInstance(
     
     // 重新创建 SSH 端口映射（因为容器内网 IP 可能变化）
     try {
-      const { create, countByInstanceId } = await import('../nat-ports/nat-port.repository');
+      const { findByInstanceId, create: createPort, findByNodeId } = await import('../nat-ports/nat-port.repository');
       const { NatPortStatus } = await import('../nat-ports/nat-port.service');
       const { sendPortForwardCommand } = await import('../agent-channel/command.service');
       
-      // 检查是否已有 SSH 端口映射
-      const existingCount = await countByInstanceId(instanceId);
-      if (existingCount === 0) {
-        // 没有端口映射，创建 SSH 端口
-        await create({
+      // 查找现有的 SSH 端口映射
+      const existingPorts = await findByInstanceId(instanceId);
+      const sshPortMapping = existingPorts.find(p => p.description === 'SSH');
+      
+      let sshPort: number;
+      if (sshPortMapping) {
+        // 复用现有 SSH 端口
+        sshPort = sshPortMapping.externalPort;
+      } else {
+        // 生成新的 SSH 端口
+        const usedPorts = await findByNodeId(nodeId);
+        const occupiedPorts = new Set(usedPorts.map(p => p.externalPort));
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        do {
+          sshPort = generateSSHPort();
+          attempts++;
+        } while (occupiedPorts.has(sshPort) && attempts < maxAttempts);
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('无法生成可用的 SSH 端口');
+        }
+        
+        // 创建 SSH 端口映射记录
+        await createPort({
           instanceId,
           nodeId,
           protocol: 'tcp',
           internalPort: 22,
-          externalPort: params.sshPort,
+          externalPort: sshPort,
           description: 'SSH',
           status: NatPortStatus.ENABLED,
           lastSyncedAt: new Date(),
         });
       }
       
-      // 无论是否有记录，都重新设置 iptables 规则（确保 IP 正确）
+      // 重新设置 iptables 规则（确保 IP 正确）
       await sendPortForwardCommand(nodeId, {
         protocol: 'tcp',
-        port: params.sshPort,
+        port: sshPort,
         targetIp: params.internalIp,
         targetPort: 22,
         ipType: 'ipv4',
       });
       
-      console.log(`[Instance] SSH 端口映射已重新设置 [instanceId=${instanceId}]`);
+      console.log(`[Instance] SSH 端口映射已重新设置 [instanceId=${instanceId}, externalPort=${sshPort}]`);
     } catch (error: any) {
       console.error(`[Instance] 重新设置 SSH 端口映射失败：${error.message}`);
     }

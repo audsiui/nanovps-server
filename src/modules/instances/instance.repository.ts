@@ -5,7 +5,7 @@
  * @description 实例相关的数据库操作
  */
 import { db } from '../../db';
-import { instances, nodes, images, type Instance, type NewInstance } from '../../db/schema';
+import { instances, nodes, images, natPortMappings, type Instance, type NewInstance } from '../../db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 /**
@@ -21,7 +21,7 @@ export async function findById(id: number): Promise<Instance | null> {
 }
 
 /**
- * 根据ID查找实例（包含节点和镜像信息）
+ * 根据 ID 查找实例（包含节点、镜像和 SSH 端口信息）
  */
 export async function findByIdWithDetails(id: number): Promise<any | null> {
   const result = await db
@@ -40,6 +40,13 @@ export async function findByIdWithDetails(id: number): Promise<any | null> {
         imageRef: sql<string>`${images}.image_ref`,
         family: sql<string>`${images}.family`,
       },
+      sshPort: sql<number | null>`(
+        SELECT ${natPortMappings.externalPort}
+        FROM ${natPortMappings}
+        WHERE ${natPortMappings.instanceId} = ${instances.id}
+        AND ${natPortMappings.description} = 'SSH'
+        LIMIT 1
+      )`.mapWith(Number),
     })
     .from(instances)
     .leftJoin(nodes, sql`${instances.nodeId} = ${nodes}.id`)
@@ -49,11 +56,12 @@ export async function findByIdWithDetails(id: number): Promise<any | null> {
 
   if (!result[0]) return null;
 
-  const { instance, node, image } = result[0];
+  const { instance, node, image, sshPort } = result[0];
   return {
     ...instance,
     node,
     image,
+    sshPort,
   };
 }
 

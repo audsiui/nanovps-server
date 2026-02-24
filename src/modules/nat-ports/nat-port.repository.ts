@@ -51,15 +51,22 @@ export async function findByNodeId(
 export async function isPortOccupied(
   nodeId: number,
   externalPort: number,
-  excludeId?: number
+  protocol?: 'tcp' | 'udp',
+  excludeInstanceId?: number
 ): Promise<boolean> {
   const conditions = [
     eq(natPortMappings.nodeId, nodeId),
     eq(natPortMappings.externalPort, externalPort),
   ];
 
-  if (excludeId) {
-    conditions.push(sql`${natPortMappings.id} != ${excludeId}`);
+  // 如果指定了协议，只检查该协议的端口
+  if (protocol) {
+    conditions.push(eq(natPortMappings.protocol, protocol));
+  }
+
+  // 排除指定实例的端口（用于批量创建时）
+  if (excludeInstanceId) {
+    conditions.push(sql`${natPortMappings.instanceId} != ${excludeInstanceId}`);
   }
 
   const result = await db
