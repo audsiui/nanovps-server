@@ -457,8 +457,8 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
 export async function reinstallInstance(
   instanceId: number,
   userId: number,
-  options?: {
-    imageId?: number;
+  options: {
+    imageId: number;
     password?: string;
   }
 ): Promise<Instance> {
@@ -475,15 +475,13 @@ export async function reinstallInstance(
 
   const nodeId = instance.nodeId;
 
-  if (options?.imageId) {
-    const newImage = await findImageById(options.imageId);
-    if (!newImage) {
-      throw new Error('镜像不存在');
-    }
-    await update(instanceId, { imageId: options.imageId });
+  const newImage = await findImageById(options.imageId);
+  if (!newImage) {
+    throw new Error('镜像不存在');
   }
+  await update(instanceId, { imageId: options.imageId });
 
-  const rootPassword = options?.password || generateRootPassword();
+  const rootPassword = options.password || generateRootPassword();
 
   const params = await getContainerCreateParams(instanceId);
 

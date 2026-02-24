@@ -466,11 +466,11 @@ export const instanceController = new Elysia({
           return errors.badRequest('实例已销毁');
         }
 
-        const { imageId, password } = body as { imageId?: number; password?: string };
+        const { imageId, password } = body as { imageId: number; password?: string };
 
-        if (imageId !== undefined && imageId !== null && imageId <= 0) {
+        if (!imageId || imageId <= 0) {
           set.status = 400;
-          return errors.badRequest('镜像ID无效');
+          return errors.badRequest('镜像 ID 无效');
         }
 
         if (password !== undefined && password !== null && password.length > 0) {
@@ -505,7 +505,7 @@ export const instanceController = new Elysia({
         id: t.String(),
       }),
       body: t.Object({
-        imageId: t.Optional(t.Number()),
+        imageId: t.Number(),
         password: t.Optional(t.String({ minLength: 6, maxLength: 32 })),
       }),
       detail: {
