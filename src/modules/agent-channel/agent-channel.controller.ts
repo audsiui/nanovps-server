@@ -14,10 +14,38 @@ import {
   type CommandResponse,
 } from './command.service';
 import { retryPendingInstances } from '../instances/instance.service';
+import { syncInstancePortMappings } from '../nat-ports/nat-port.service';
 import type { Node } from '../../db/schema/nodes';
 
 // WebSocket 连接与节点的映射表
 const wsNodeMap = new Map<string, Node>();
+
+/**
+ * 同步节点上所有运行中实例的端口映射
+ */
+async function syncAllInstancePortMappings(nodeId: number) {
+  try {
+    const { findByNodeIdAndStatus, InstanceStatus } = await import('../instances/instance.service');
+    const { syncInstancePortMappings } = await import('../nat-ports/nat-port.service');
+    
+    // 查询节点上运行中的实例（排除创建中、销毁中、已销毁的）
+    const runningInstances = await findByNodeIdAndStatus(nodeId, [
+      InstanceStatus.RUNNING,
+      InstanceStatus.STOPPED,
+      InstanceStatus.PAUSED,
+    ]);
+    
+    console.log(`[Agent] 发现 ${runningInstances.length} 个运行中实例，开始同步端口映射 [nodeId=${nodeId}]`);
+    
+    for (const instance of runningInstances) {
+      await syncInstancePortMappings(instance.id);
+    }
+    
+    console.log(`[Agent] 端口映射同步完成 [nodeId=${nodeId}]`);
+  } catch (error: any) {
+    console.error(`[Agent] 同步端口映射失败 [nodeId=${nodeId}]:`, error);
+  }
+}
 
 export const agentChannelController = new Elysia({
   prefix: '/agent',
@@ -57,9 +85,14 @@ export const agentChannelController = new Elysia({
       registerNodeConnection(node.id, ws);
       console.log(`[Agent] 节点已连接 [nodeId=${node.id}, name=${node.name}]`);
       
-      // 重试待创建的实例
+      // 重试待创建的实例（创建容器 + SSH 端口映射）
       retryPendingInstances(node.id).catch((err) => {
         console.error(`[Agent] 重试待创建实例失败 [nodeId=${node.id}]:`, err);
+      });
+      
+      // 同步已创建实例的端口映射（确保 iptables 规则正确）
+      syncAllInstancePortMappings(node.id).catch((err) => {
+        console.error(`[Agent] 同步端口映射失败 [nodeId=${node.id}]:`, err);
       });
     }
   },

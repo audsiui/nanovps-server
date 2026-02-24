@@ -23,7 +23,11 @@ export const authPlugin = new Elysia({ name: 'auth/plugin' })
     auth: (options: UserRole[] | boolean = true) => {
       // 如果 auth 为 false，跳过鉴权
       if (options === false) {
-        return undefined;
+        return {
+          async resolve() {
+            return;
+          },
+        };
       }
 
       const roles = Array.isArray(options) ? options : undefined;
@@ -58,7 +62,7 @@ export const authPlugin = new Elysia({ name: 'auth/plugin' })
         },
       };
     },
-  })
+  });
 
 export const createToken = async (
   jwt: {

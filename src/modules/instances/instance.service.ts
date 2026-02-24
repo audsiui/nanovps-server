@@ -437,6 +437,39 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
     if (result.success && result.containerId) {
       await setContainerInfo(instanceId, result.containerId, params.internalIp);
       console.log(`[Instance] 容器创建成功 [instanceId=${instanceId}, containerId=${result.containerId}]`);
+      
+      // 创建 SSH 端口映射
+      try {
+        const { create, countByInstanceId } = await import('../nat-ports/nat-port.repository');
+        const { NatPortStatus } = await import('../nat-ports/nat-port.service');
+        const { sendPortForwardCommand } = await import('../agent-channel/command.service');
+        
+        const existingCount = await countByInstanceId(instanceId);
+        if (existingCount === 0) {
+          await create({
+            instanceId,
+            nodeId,
+            protocol: 'tcp',
+            internalPort: 22,
+            externalPort: params.sshPort,
+            description: 'SSH',
+            status: NatPortStatus.ENABLED,
+            lastSyncedAt: new Date(),
+          });
+        }
+        
+        await sendPortForwardCommand(nodeId, {
+          protocol: 'tcp',
+          port: params.sshPort,
+          targetIp: params.internalIp,
+          targetPort: 22,
+          ipType: 'ipv4',
+        });
+        
+        console.log(`[Instance] SSH 端口映射已创建 [instanceId=${instanceId}]`);
+      } catch (error: any) {
+        console.error(`[Instance] 创建 SSH 端口映射失败：${error.message}`);
+      }
     } else {
       await setInstanceError(instanceId, result.message);
       console.error(`[Instance] 容器创建失败 [instanceId=${instanceId}]: ${result.message}`);
@@ -512,6 +545,42 @@ export async function reinstallInstance(
 
   if (result.success && result.containerId) {
     await setContainerInfo(instanceId, result.containerId, params.internalIp);
+    
+    // 重新创建 SSH 端口映射（因为容器内网 IP 可能变化）
+    try {
+      const { create, countByInstanceId } = await import('../nat-ports/nat-port.repository');
+      const { NatPortStatus } = await import('../nat-ports/nat-port.service');
+      const { sendPortForwardCommand } = await import('../agent-channel/command.service');
+      
+      // 检查是否已有 SSH 端口映射
+      const existingCount = await countByInstanceId(instanceId);
+      if (existingCount === 0) {
+        // 没有端口映射，创建 SSH 端口
+        await create({
+          instanceId,
+          nodeId,
+          protocol: 'tcp',
+          internalPort: 22,
+          externalPort: params.sshPort,
+          description: 'SSH',
+          status: NatPortStatus.ENABLED,
+          lastSyncedAt: new Date(),
+        });
+      }
+      
+      // 无论是否有记录，都重新设置 iptables 规则（确保 IP 正确）
+      await sendPortForwardCommand(nodeId, {
+        protocol: 'tcp',
+        port: params.sshPort,
+        targetIp: params.internalIp,
+        targetPort: 22,
+        ipType: 'ipv4',
+      });
+      
+      console.log(`[Instance] SSH 端口映射已重新设置 [instanceId=${instanceId}]`);
+    } catch (error: any) {
+      console.error(`[Instance] 重新设置 SSH 端口映射失败：${error.message}`);
+    }
   } else {
     throw new Error(result.message || '重装失败');
   }
