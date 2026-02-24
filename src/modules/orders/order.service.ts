@@ -270,6 +270,41 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
       // 更新实例信息
       await setContainerInfo(instanceId, result.containerId, params.internalIp);
       console.log(`[Order] 容器创建成功 [instanceId=${instanceId}, containerId=${result.containerId}]`);
+
+      // 创建 SSH 端口映射（通过 iptables）
+      try {
+        const instance = await findInstanceById(instanceId);
+        if (instance && instance.internalIp) {
+          const { create } = await import('../nat-ports/nat-port.repository');
+          const { NatPortStatus } = await import('../nat-ports/nat-port.service');
+          const { sendPortForwardCommand } = await import('../agent-channel/command.service');
+
+          // 写入数据库
+          await create({
+            instanceId,
+            nodeId,
+            protocol: 'tcp',
+            internalPort: 22,
+            externalPort: params.sshPort,
+            description: 'SSH',
+            status: NatPortStatus.ENABLED,
+            lastSyncedAt: new Date(),
+          });
+
+          // 设置 iptables 转发
+          await sendPortForwardCommand(nodeId, {
+            protocol: 'tcp',
+            port: params.sshPort,
+            targetIp: instance.internalIp,
+            targetPort: 22,
+            ipType: 'ipv4',
+          });
+
+          console.log(`[Order] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${params.sshPort}]`);
+        }
+      } catch (error: any) {
+        console.error(`[Order] 创建 SSH 端口映射失败：${error.message}`);
+      }
     } else {
       // 创建失败，设置实例为错误状态
       await setInstanceError(instanceId, result.message);

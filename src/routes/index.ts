@@ -13,6 +13,7 @@ import { giftCodeController } from '../modules/gift-codes/gift-code.controller';
 import { agentChannelController } from '../modules/agent-channel/agent-channel.controller';
 import { reportQueryController } from '../modules/agent-channel/report-query.controller';
 import { instanceController } from '../modules/instances/instance.controller';
+import { natPortController } from '../modules/nat-ports/nat-port.controller';
 import Elysia from 'elysia';
 
 export const routes = new Elysia()
@@ -31,6 +32,7 @@ export const routes = new Elysia()
   .use(agentChannelController)
   .use(reportQueryController)
   .use(instanceController)
+  .use(natPortController)
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
