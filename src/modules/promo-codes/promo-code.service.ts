@@ -47,10 +47,10 @@ export async function getPromoCodeById(id: number): Promise<PromoCode> {
 export async function createPromoCode(data: NewPromoCode): Promise<PromoCode> {
   // 处理空字符串时间字段
   if (data.startAt === '' || data.startAt === undefined) {
-    data.startAt = null as any;
+    (data as { startAt: Date | null }).startAt = null;
   }
   if (data.endAt === '' || data.endAt === undefined) {
-    data.endAt = null as any;
+    (data as { endAt: Date | null }).endAt = null;
   }
 
   // 检查优惠码是否已存在
@@ -92,10 +92,10 @@ export async function updatePromoCode(
 ): Promise<PromoCode> {
   // 处理空字符串时间字段
   if (data.startAt === '' || data.startAt === undefined) {
-    data.startAt = null as any;
+    (data as { startAt: Date | null }).startAt = null;
   }
   if (data.endAt === '' || data.endAt === undefined) {
-    data.endAt = null as any;
+    (data as { endAt: Date | null }).endAt = null;
   }
 
   const promoCode = await findById(id);

@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, errors } from '../../utils/response';
+import { success, errors, getErrorMessage } from '../../utils/response';
 import {
   getInstanceById,
   getUserInstances,
@@ -75,17 +75,17 @@ export const instanceController = new Elysia({
       try {
         const instance = await getInstanceById(Number(params.id), user.userId);
         return success(instance);
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -133,17 +133,17 @@ export const instanceController = new Elysia({
         await startInstance(instance.id);
 
         return success({ status: 'started' }, '实例已启动');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -191,17 +191,17 @@ export const instanceController = new Elysia({
         await stopInstance(instance.id);
 
         return success({ status: 'stopped' }, '实例已停止');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -246,17 +246,17 @@ export const instanceController = new Elysia({
         }
 
         return success({ status: 'restarted' }, '实例已重启');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -292,17 +292,17 @@ export const instanceController = new Elysia({
         await deleteInstance(instance.id, user.userId);
 
         return success({ status: 'deleted' }, '实例已删除');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权操作此实例') {
+        if (getErrorMessage(error) === '无权操作此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -374,7 +374,7 @@ export const instanceController = new Elysia({
           memory: containerData.memory,
           network: containerData.network,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[Instance] 查询实时状态失败:`, error);
         set.status = 500;
         return errors.internal('查询失败');
@@ -433,7 +433,7 @@ export const instanceController = new Elysia({
         });
 
         return success(history);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[Instance] 查询历史数据失败:`, error);
         set.status = 500;
         return errors.internal('查询失败');
@@ -486,17 +486,17 @@ export const instanceController = new Elysia({
         });
 
         return success(updated, '实例重装成功');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权操作此实例') {
+        if (getErrorMessage(error) === '无权操作此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

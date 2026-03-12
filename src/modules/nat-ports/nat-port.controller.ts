@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, errors } from '../../utils/response';
+import { success, errors, getErrorMessage } from '../../utils/response';
 import {
   createPortMapping,
   createPortMappings,
@@ -52,17 +52,17 @@ export const natPortController = new Elysia({
           available: !isOccupied,
           message: isOccupied ? '端口已被占用' : '端口可用',
         });
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -92,17 +92,17 @@ export const natPortController = new Elysia({
           list: mappings,
           total: mappings.length,
         });
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权访问此实例') {
+        if (getErrorMessage(error) === '无权访问此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -139,25 +139,25 @@ export const natPortController = new Elysia({
         });
 
         return success(results.length === 1 ? results[0] : results, '端口映射创建成功');
-      } catch (error: any) {
-        if (error.message === '实例不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '实例不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权操作此实例') {
+        if (getErrorMessage(error) === '无权操作此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         if (
-          error.message.includes('端口数量') ||
-          error.message.includes('已被占用') ||
-          error.message.includes('端口必须')
+          getErrorMessage(error).includes('端口数量') ||
+          getErrorMessage(error).includes('已被占用') ||
+          getErrorMessage(error).includes('端口必须')
         ) {
           set.status = 400;
-          return errors.badRequest(error.message);
+          return errors.badRequest(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -182,17 +182,17 @@ export const natPortController = new Elysia({
       try {
         await deletePortMapping(Number(params.id), user.userId);
         return success({ status: 'deleted' }, '端口映射已删除');
-      } catch (error: any) {
-        if (error.message === '端口映射不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '端口映射不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '无权操作此实例') {
+        if (getErrorMessage(error) === '无权操作此实例') {
           set.status = 403;
-          return errors.forbidden(error.message);
+          return errors.forbidden(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

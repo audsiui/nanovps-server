@@ -219,8 +219,9 @@ export async function useGiftCode(params: {
       giftAmount,
       newBalance: result.newBalance,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message || '领取失败，请重试' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    return { success: false, message: message || '领取失败，请重试' };
   }
 }
 

@@ -42,8 +42,9 @@ async function syncAllInstancePortMappings(nodeId: number) {
     }
     
     console.log(`[Agent] 端口映射同步完成 [nodeId=${nodeId}]`);
-  } catch (error: any) {
-    console.error(`[Agent] 同步端口映射失败 [nodeId=${nodeId}]:`, error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    console.error(`[Agent] 同步端口映射失败 [nodeId=${nodeId}]: ${message}`);
   }
 }
 

@@ -34,7 +34,7 @@ import {
   isNodeConnected,
 } from '../agent-channel/command.service';
 import { db, orders, nodePlans, promoCodeUsages, promoCodes, users } from '../../db';
-import type { NewOrder, Order } from '../../db/schema';
+import type { NewOrder, Order, BillingCycle } from '../../db/schema';
 import { sql, eq } from 'drizzle-orm';
 
 /**
@@ -70,7 +70,7 @@ export async function createOrder(params: {
   }
 
   // 2. 获取计费周期价格
-  const billingCycles = nodePlan.billingCycles as any[];
+  const billingCycles = nodePlan.billingCycles as BillingCycle[];
   const selectedCycle = billingCycles.find(
     (c) => c.cycle === billingCycle && c.enabled
   );
@@ -321,17 +321,21 @@ async function triggerContainerCreation(instanceId: number, nodeId: number): Pro
 
           console.log(`[Order] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${sshPort}]`);
         }
-      } catch (error: any) {
-        console.error(`[Order] 创建 SSH 端口映射失败：${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '未知错误';
+        // SSH 端口映射失败，标记实例为错误状态
+        await setInstanceError(instanceId, `SSH 端口映射创建失败：${message}`);
+        console.error(`[Order] 创建 SSH 端口映射失败 [instanceId=${instanceId}]：${message}`);
       }
     } else {
       // 创建失败，设置实例为错误状态
       await setInstanceError(instanceId, result.message);
       console.error(`[Order] 容器创建失败 [instanceId=${instanceId}]: ${result.message}`);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 异常情况，设置实例为错误状态
-    await setInstanceError(instanceId, error.message);
+    const message = error instanceof Error ? error.message : '未知错误';
+    await setInstanceError(instanceId, message);
     console.error(`[Order] 容器创建异常 [instanceId=${instanceId}]:`, error);
   }
 }

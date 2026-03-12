@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   getPromoCodeList,
   getPromoCodeById,
@@ -62,9 +62,9 @@ export const promoCodeController = new Elysia({
       try {
         const promoCode = await getPromoCodeById(Number(params.id));
         return success(promoCode);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -86,9 +86,9 @@ export const promoCodeController = new Elysia({
         const promoCode = await createPromoCode(body);
         set.status = 201;
         return created(promoCode, '优惠码创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -120,13 +120,13 @@ export const promoCodeController = new Elysia({
         const { id, ...updateData } = body;
         const promoCode = await updatePromoCode(Number(id), updateData);
         return success(promoCode, '优惠码更新成功');
-      } catch (error: any) {
-        if (error.message === '优惠码不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '优惠码不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -158,17 +158,17 @@ export const promoCodeController = new Elysia({
       try {
         await deletePromoCode(Number(body.id));
         return success(null, '优惠码删除成功');
-      } catch (error: any) {
-        if (error.message === '优惠码不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '优惠码不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message.includes('已被使用')) {
+        if (getErrorMessage(error).includes('已被使用')) {
           set.status = 409;
-          return errors.conflict(error.message);
+          return errors.conflict(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -232,9 +232,9 @@ export const promoCodeController = new Elysia({
         );
 
         return success(result);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

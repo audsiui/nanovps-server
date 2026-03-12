@@ -45,7 +45,7 @@ export async function createRecharge(params: {
     bonusAmount: '0',
     finalAmount: amount.toString(),
     status: 'pending',
-    channel: channel as any,
+    channel: channel as 'alipay' | 'wechat' | 'stripe' | 'paypal',
     paidAt: null,
     tradeNo: null,
   });

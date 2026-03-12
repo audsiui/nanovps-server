@@ -9,7 +9,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import { createNode, updateNode, deleteNode, getNodeById, getNodeList, getNodeRealtime } from './node.service';
 
 export const nodeController = new Elysia({
@@ -25,9 +25,9 @@ export const nodeController = new Elysia({
         const node = await createNode(body);
         set.status = 201;
         return created(node, '节点创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -57,13 +57,13 @@ export const nodeController = new Elysia({
         const { id, ...updateData } = body;
         const node = await updateNode(Number(id), updateData);
         return success(node, '节点更新成功');
-      } catch (error: any) {
-        if (error.message === '节点不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -92,9 +92,9 @@ export const nodeController = new Elysia({
       try {
         const node = await getNodeById(Number(params.id));
         return success(node);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -115,9 +115,9 @@ export const nodeController = new Elysia({
       try {
         const data = await getNodeRealtime(Number(params.id));
         return success(data);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -173,13 +173,13 @@ export const nodeController = new Elysia({
       try {
         await deleteNode(body.id);
         return success(null, '节点删除成功');
-      } catch (error: any) {
-        if (error.message === '节点不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 500;
-        return errors.internal(error.message);
+        return errors.internal(getErrorMessage(error));
       }
     },
     {

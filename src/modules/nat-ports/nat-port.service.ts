@@ -18,6 +18,7 @@ import { findById as findNodeById } from '../nodes/node.repository';
 import { findById as findPlanTemplateById } from '../plan-templates/plan-template.repository';
 import { sendPortForwardCommand, sendPortUnforwardCommand, isNodeConnected } from '../agent-channel/command.service';
 import type { NewNatPortMapping } from '../../db/schema';
+import { InstanceStatus } from '../instances/instance.service';
 
 /**
  * 创建端口映射
@@ -42,7 +43,7 @@ export async function createPortMapping(
   }
 
   // 检查实例状态
-  if (instance.status === 6) {
+  if (instance.status === InstanceStatus.DESTROYED) {
     throw new Error('实例已销毁');
   }
 
@@ -94,7 +95,7 @@ export async function createPortMapping(
 
   const created = await create(mapping);
 
-  // 同步到 Agent
+  // 同步到 Agent（失败时回滚数据库记录）
   if (isNodeConnected(instance.nodeId)) {
     try {
       await sendPortForwardCommand(instance.nodeId, {
@@ -104,8 +105,11 @@ export async function createPortMapping(
         targetPort: data.internalPort,
         ipType: 'ipv4',
       });
-    } catch (error: any) {
-      console.error(`[NAT] 同步 Agent 失败：${error.message}`);
+    } catch (error: unknown) {
+      // 回滚：删除刚创建的记录
+      await remove(created.id);
+      const message = error instanceof Error ? error.message : '未知错误';
+      throw new Error(`端口映射创建失败：Agent 同步失败（${message}）`);
     }
   }
 
@@ -175,7 +179,7 @@ export async function deletePortMapping(
     throw new Error('无权操作此实例');
   }
 
-  // 删除 Agent 上的规则
+  // 删除 Agent 上的规则（失败时抛出异常，阻止删除数据库记录）
   if (isNodeConnected(mapping.nodeId)) {
     try {
       await sendPortUnforwardCommand(mapping.nodeId, {
@@ -185,8 +189,9 @@ export async function deletePortMapping(
         targetPort: mapping.internalPort,
         ipType: 'ipv4',
       });
-    } catch (error: any) {
-      console.error(`[NAT] 删除 Agent 规则失败：${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      throw new Error(`删除端口映射失败：Agent 规则删除失败（${message}）`);
     }
   }
 
@@ -198,18 +203,20 @@ export async function deletePortMapping(
 
 /**
  * 同步实例的所有端口映射到 Agent（用于节点上线时）
+ * @returns 同步失败的端口列表（空数组表示全部成功）
  */
-export async function syncInstancePortMappings(instanceId: number): Promise<void> {
+export async function syncInstancePortMappings(instanceId: number): Promise<{ port: number; protocol: string; error: string }[]> {
   const instance = await findInstanceById(instanceId);
   if (!instance || !instance.internalIp) {
-    return;
+    return [];
   }
 
   if (!isNodeConnected(instance.nodeId)) {
-    return;
+    return [];
   }
 
   const mappings = await findByInstanceId(instanceId);
+  const failures: { port: number; protocol: string; error: string }[] = [];
 
   for (const mapping of mappings) {
     try {
@@ -220,8 +227,16 @@ export async function syncInstancePortMappings(instanceId: number): Promise<void
         targetPort: mapping.internalPort,
         ipType: 'ipv4',
       });
-    } catch (error: any) {
-      console.error(`[NAT] 同步端口失败：${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      console.error(`[NAT] 同步端口 ${mapping.externalPort}/${mapping.protocol} 失败：${message}`);
+      failures.push({
+        port: mapping.externalPort,
+        protocol: mapping.protocol,
+        error: message,
+      });
     }
   }
+
+  return failures;
 }

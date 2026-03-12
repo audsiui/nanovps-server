@@ -7,7 +7,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, errors } from '../../utils/response';
+import { success, errors, getErrorMessage } from '../../utils/response';
 import {
   getCatalog,
   getCatalogByRegionId,
@@ -27,7 +27,7 @@ export const catalogController = new Elysia({
       try {
         const catalog = await getCatalog();
         return success(catalog);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('获取产品目录失败:', error);
         return errors.internal('获取产品目录失败');
       }
@@ -51,7 +51,7 @@ export const catalogController = new Elysia({
           return errors.notFound('区域不存在或已禁用');
         }
         return success(catalog);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('获取区域产品目录失败:', error);
         return errors.internal('获取区域产品目录失败');
       }
@@ -78,7 +78,7 @@ export const catalogController = new Elysia({
           return errors.notFound('套餐不存在或已下架');
         }
         return success(plan);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('获取套餐详情失败:', error);
         return errors.internal('获取套餐详情失败');
       }

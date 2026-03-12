@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   createRecharge,
   getRechargeById,
@@ -33,9 +33,9 @@ export const rechargeController = new Elysia({
 
         set.status = 201;
         return created(result, '充值订单创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -99,13 +99,13 @@ export const rechargeController = new Elysia({
         }
 
         return success(recharge);
-      } catch (error: any) {
-        if (error.message === '充值记录不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '充值记录不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

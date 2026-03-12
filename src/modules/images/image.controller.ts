@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   getImages,
   getImageById,
@@ -82,9 +82,9 @@ export const imageController = new Elysia({
       try {
         const image = await getImageById(Number(params.id));
         return success(image);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -106,9 +106,9 @@ export const imageController = new Elysia({
         const image = await createImage(body);
         set.status = 201;
         return created(image, '镜像创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -134,13 +134,13 @@ export const imageController = new Elysia({
         const { id, ...updateData } = body;
         const image = await updateImage(Number(id), updateData);
         return success(image, '镜像更新成功');
-      } catch (error: any) {
-        if (error.message === '镜像不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '镜像不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -167,13 +167,13 @@ export const imageController = new Elysia({
         const { id } = body;
         await deleteImage(Number(id));
         return success(null, '镜像删除成功');
-      } catch (error: any) {
-        if (error.message === '镜像不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '镜像不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

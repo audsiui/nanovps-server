@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, errors } from '../../utils/response';
+import { success, errors, getErrorMessage } from '../../utils/response';
 import {
   getHostLatest,
   getAllContainersLatest,
@@ -59,7 +59,7 @@ export const reportQueryController = new Elysia({
         }
 
         return success(result);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[ReportQuery] 查询实时数据失败:`, error);
         set.status = 500;
         return errors.internal('查询失败');
@@ -94,7 +94,7 @@ export const reportQueryController = new Elysia({
         }
 
         return success({ container });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[ReportQuery] 查询容器数据失败:`, error);
         set.status = 500;
         return errors.internal('查询失败');
@@ -149,7 +149,7 @@ export const reportQueryController = new Elysia({
           count: Object.keys(results).length,
           data: results,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[ReportQuery] 批量查询失败:`, error);
         set.status = 500;
         return errors.internal('查询失败');

@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   getPlanTemplateList,
   createPlanTemplate,
@@ -56,9 +56,9 @@ export const planTemplateController = new Elysia({
       try {
         const template = await getPlanTemplateById(Number(params.id));
         return success(template);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -80,9 +80,9 @@ export const planTemplateController = new Elysia({
         const template = await createPlanTemplate(body);
         set.status = 201;
         return created(template, '套餐模板创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -111,17 +111,17 @@ export const planTemplateController = new Elysia({
         const { id, ...updateData } = body;
         const template = await updatePlanTemplate(Number(id), updateData);
         return success(template, '套餐模板更新成功');
-      } catch (error: any) {
-        if (error.message === '套餐模板不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '套餐模板不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message.includes('正在被') && error.message.includes('使用')) {
+        if (getErrorMessage(error).includes('正在被') && getErrorMessage(error).includes('使用')) {
           set.status = 409;
-          return errors.conflict(error.message);
+          return errors.conflict(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -151,17 +151,17 @@ export const planTemplateController = new Elysia({
         const { id } = body;
         const result = await deletePlanTemplate(Number(id));
         return success(result, '套餐模板删除成功');
-      } catch (error: any) {
-        if (error.message === '套餐模板不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '套餐模板不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message.includes('正在被') && error.message.includes('使用')) {
+        if (getErrorMessage(error).includes('正在被') && getErrorMessage(error).includes('使用')) {
           set.status = 409;
-          return errors.conflict(error.message);
+          return errors.conflict(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

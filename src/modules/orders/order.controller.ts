@@ -6,7 +6,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   createOrder,
   getOrderById,
@@ -36,9 +36,9 @@ export const orderController = new Elysia({
         });
 
         return success(result);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -73,9 +73,9 @@ export const orderController = new Elysia({
 
         set.status = 201;
         return created(result, '订单创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -137,13 +137,13 @@ export const orderController = new Elysia({
         }
 
         return success(order);
-      } catch (error: any) {
-        if (error.message === '订单不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '订单不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

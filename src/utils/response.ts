@@ -1,5 +1,18 @@
 // 统一的 API 响应封装
 
+/**
+ * 从未知错误中提取错误消息
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return '未知错误';
+}
+
 export interface ApiResponse<T = unknown> {
   code: number;
   message: string;

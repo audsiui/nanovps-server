@@ -9,7 +9,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   getRegions,
   getRegionById,
@@ -64,9 +64,9 @@ export const regionController = new Elysia({
       try {
         const region = await getRegionById(Number(params.id));
         return success(region);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -88,9 +88,9 @@ export const regionController = new Elysia({
         const region = await createRegion(body);
         set.status = 201;
         return created(region, '区域创建成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -115,13 +115,13 @@ export const regionController = new Elysia({
         const { id, ...updateData } = body;
         const region = await updateRegion(Number(id), updateData);
         return success(region, '区域更新成功');
-      } catch (error: any) {
-        if (error.message === '区域不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '区域不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -147,13 +147,13 @@ export const regionController = new Elysia({
         const { id } = body;
         await deleteRegion(Number(id));
         return success(null, '区域删除成功');
-      } catch (error: any) {
-        if (error.message === '区域不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '区域不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

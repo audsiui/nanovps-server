@@ -75,7 +75,7 @@ export async function findByUserId(params: {
 
   const conditions = [eq(recharges.userId, userId)];
   if (status) {
-    conditions.push(eq(recharges.status, status as any));
+    conditions.push(eq(recharges.status, status as 'pending' | 'paid' | 'cancelled' | 'failed'));
   }
 
   const data = await db

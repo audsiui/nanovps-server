@@ -1,6 +1,15 @@
 import { findByEmail, createUser } from "./auth.repository";
 import type { CreateUserRequest, User, UserResponse, LoginRequest, LoginResponse } from "../../types/auth";
 
+/**
+ * 用户状态枚举
+ */
+export const UserStatus = {
+  UNVERIFIED: 0, // 未验证
+  ACTIVE: 1,    // 正常
+  BANNED: 2,    // 封禁
+} as const;
+
 // 密码哈希
 export async function hashPassword(password: string): Promise<string> {
   return Bun.password.hash(password, {
@@ -67,11 +76,11 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   }
 
   // 检查用户状态
-  if (user.status === 0) {
+  if (user.status === UserStatus.UNVERIFIED) {
     throw new Error("账号未激活，请联系管理员");
   }
 
-  if (user.status === 2) {
+  if (user.status === UserStatus.BANNED) {
     throw new Error("账号已被封禁");
   }
 

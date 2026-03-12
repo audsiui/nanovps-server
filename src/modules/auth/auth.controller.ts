@@ -1,7 +1,7 @@
 import Elysia, { t } from 'elysia';
 import { authPlugin, createToken } from '../../plugins/auth';
 import { register, login } from './auth.service';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   generateRefreshToken,
   storeRefreshToken,
@@ -34,9 +34,9 @@ export const authController = new Elysia({
         const user = await register(body);
         set.status = 201;
         return created(user, '注册成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 409;
-        return errors.conflict(error.message);
+        return errors.conflict(getErrorMessage(error));
       }
     },
     {
@@ -94,8 +94,8 @@ export const authController = new Elysia({
           },
           '登录成功',
         );
-      } catch (error: any) {
-        const message = error.message;
+      } catch (error: unknown) {
+        const message = getErrorMessage(error);
         if (message.includes('未激活') || message.includes('封禁')) {
           set.status = 403;
           return errors.forbidden(message);
@@ -158,9 +158,9 @@ export const authController = new Elysia({
           },
           '刷新成功',
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 500;
-        return errors.internal(error.message);
+        return errors.internal(getErrorMessage(error));
       }
     },
     {
@@ -183,9 +183,9 @@ export const authController = new Elysia({
         await revokeRefreshToken(refreshToken);
 
         return success(null, '登出成功');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 500;
-        return errors.internal(error.message);
+        return errors.internal(getErrorMessage(error));
       }
     },
     {
@@ -206,9 +206,9 @@ export const authController = new Elysia({
         await revokeAllUserTokens(user.userId.toString());
 
         return success(null, '所有设备已登出');
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 500;
-        return errors.internal(error.message);
+        return errors.internal(getErrorMessage(error));
       }
     },
     { auth:true,
@@ -241,9 +241,9 @@ export const authController = new Elysia({
           },
           '获取用户信息成功',
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 500;
-        return errors.internal(error.message);
+        return errors.internal(getErrorMessage(error));
       }
     },
     {

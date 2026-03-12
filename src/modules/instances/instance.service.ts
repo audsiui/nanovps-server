@@ -100,14 +100,6 @@ function generateSSHPort(): number {
 }
 
 /**
- * 计算 SSH 端口
- * 规则：10000 + 实例ID
- */
-function calculateSSHPort(instanceId: number): number {
-  return NETWORK_CONFIG.sshPortBase + instanceId;
-}
-
-/**
  * 创建实例（供订单服务调用）
  * 注意：此函数只创建数据库记录，不实际创建容器
  */
@@ -486,15 +478,19 @@ async function triggerContainerCreationForInstance(instanceId: number, nodeId: n
         });
         
         console.log(`[Instance] SSH 端口映射已创建 [instanceId=${instanceId}, externalPort=${sshPort}]`);
-      } catch (error: any) {
-        console.error(`[Instance] 创建 SSH 端口映射失败：${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '未知错误';
+        // SSH 端口映射失败，标记实例为错误状态
+        await setInstanceError(instanceId, `SSH 端口映射创建失败：${message}`);
+        console.error(`[Instance] 创建 SSH 端口映射失败 [instanceId=${instanceId}]：${message}`);
       }
     } else {
       await setInstanceError(instanceId, result.message);
       console.error(`[Instance] 容器创建失败 [instanceId=${instanceId}]: ${result.message}`);
     }
-  } catch (error: any) {
-    await setInstanceError(instanceId, error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    await setInstanceError(instanceId, message);
     console.error(`[Instance] 容器创建异常 [instanceId=${instanceId}]:`, error);
   }
 }
@@ -617,8 +613,11 @@ export async function reinstallInstance(
       });
       
       console.log(`[Instance] SSH 端口映射已重新设置 [instanceId=${instanceId}, externalPort=${sshPort}]`);
-    } catch (error: any) {
-      console.error(`[Instance] 重新设置 SSH 端口映射失败：${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      // SSH 端口映射失败，标记实例为错误状态
+      await setInstanceError(instanceId, `SSH 端口映射重新设置失败：${message}`);
+      console.error(`[Instance] 重新设置 SSH 端口映射失败 [instanceId=${instanceId}]：${message}`);
     }
   } else {
     throw new Error(result.message || '重装失败');

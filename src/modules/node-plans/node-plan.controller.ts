@@ -7,7 +7,7 @@
  */
 import Elysia, { t } from 'elysia';
 import { authPlugin } from '../../plugins/auth';
-import { success, created, errors } from '../../utils/response';
+import { success, created, errors, getErrorMessage } from '../../utils/response';
 import {
   getNodePlanList,
   createNodePlan,
@@ -78,13 +78,13 @@ export const nodePlanController = new Elysia({
 
         const result = await getNodePlansByNodeId(nodeId, page, pageSize);
         return success(result);
-      } catch (error: any) {
-        if (error.message === '节点不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -109,9 +109,9 @@ export const nodePlanController = new Elysia({
       try {
         const nodePlan = await getNodePlanById(Number(params.id));
         return success(nodePlan);
-      } catch (error: any) {
+      } catch (error: unknown) {
         set.status = 404;
-        return errors.notFound(error.message);
+        return errors.notFound(getErrorMessage(error));
       }
     },
     {
@@ -133,17 +133,17 @@ export const nodePlanController = new Elysia({
         const nodePlan = await createNodePlan(body);
         set.status = 201;
         return created(nodePlan, '套餐配置成功');
-      } catch (error: any) {
-        if (error.message === '节点不存在' || error.message === '套餐模板不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点不存在' || getErrorMessage(error) === '套餐模板不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
-        if (error.message === '该节点已配置此套餐模板') {
+        if (getErrorMessage(error) === '该节点已配置此套餐模板') {
           set.status = 409;
-          return errors.conflict(error.message);
+          return errors.conflict(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -170,13 +170,13 @@ export const nodePlanController = new Elysia({
         const { id, ...updateData } = body;
         const nodePlan = await updateNodePlan(Number(id), updateData);
         return success(nodePlan, '套餐配置更新成功');
-      } catch (error: any) {
-        if (error.message === '节点套餐不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点套餐不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {
@@ -202,13 +202,13 @@ export const nodePlanController = new Elysia({
         const { id } = body;
         const result = await deleteNodePlan(Number(id));
         return success(result, '套餐配置删除成功');
-      } catch (error: any) {
-        if (error.message === '节点套餐不存在') {
+      } catch (error: unknown) {
+        if (getErrorMessage(error) === '节点套餐不存在') {
           set.status = 404;
-          return errors.notFound(error.message);
+          return errors.notFound(getErrorMessage(error));
         }
         set.status = 400;
-        return errors.badRequest(error.message);
+        return errors.badRequest(getErrorMessage(error));
       }
     },
     {

@@ -132,7 +132,7 @@ export async function findByUserId(params: {
 
   const conditions = [eq(orders.userId, userId)];
   if (status) {
-    conditions.push(eq(orders.status, status as any));
+    conditions.push(eq(orders.status, status as 'pending' | 'paid' | 'processing' | 'completed' | 'failed'));
   }
 
   const data = await db
